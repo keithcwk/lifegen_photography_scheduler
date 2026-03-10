@@ -1,0 +1,54 @@
+events:
+  Sunday Service:
+    photographers: 4
+    director: 1
+    editors: 2
+    tier: standard
+
+  Mother's Day:
+    photographers: 4
+    director: 1
+    editors: 2
+    tier: high
+
+  Father's Day:
+    photographers: 4
+    director: 1
+    editors: 2
+    tier: high
+
+  Easter:
+    photographers: 4
+    director: 1
+    editors: 2
+    tier: high
+
+  Good Friday:
+    photographers: 4
+    director: 1
+    editors: 2
+    tier: high
+
+  Lifegen Camp:
+    photographers: 4
+    director: 1
+    editors: 2
+    tier: high
+
+  Leaders Meet:
+    photographers: 2
+    director: 1
+    editors: 1
+    tier: low
+
+  Creative Team Meet:
+    photographers: 2
+    director: 1
+    editors: 1
+    tier: low
+
+  Lifegen Prayer:
+    photographers: 2
+    director: 1
+    editors: 1
+    tier: low

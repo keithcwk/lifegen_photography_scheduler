@@ -1,0 +1,63 @@
+greens:
+  - name: Nic
+    shoot_rank: 1
+    direct_rank: 1
+    editor_rank: 2
+
+  - name: Keith
+    shoot_rank: 2
+    direct_rank: 2
+    editor_rank: 1
+
+  - name: Dennis
+    shoot_rank: 3
+    direct_rank: 3
+    editor_rank: 3
+
+  - name: Gavin
+    shoot_rank: 4
+    direct_rank: 4
+    editor_rank: 4
+
+  - name: Huey Chyi
+    shoot_rank: 5
+    direct_rank: 5
+    editor_rank: 5
+
+  - name: Joseph
+    shoot_rank: 6
+    direct_rank: 6
+    editor_rank: 6
+
+yellows:
+  - name: Charites
+    editor_rank: 1
+    director_track: true
+
+  - name: Dan C
+    editor_rank: 2
+    director_track: true
+
+  - name: Jia En
+    editor_rank: 3
+
+  - name: Cindy
+    editor_rank: 4
+
+  - name: Patrick
+    editor_rank: 5
+
+  - name: Wing Yan
+    editor_rank: 6
+
+  - name: Janelle
+    editor_rank: 7
+
+  - name: Ashley
+    editor_rank: 8
+
+reds:
+  - Alvin
+  - Josiah
+  - Issac
+  - Aslvin

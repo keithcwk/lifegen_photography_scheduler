@@ -1,0 +1,22 @@
+generation_window:
+  months_after_last_explicit_event: 1
+
+recurring_events:
+  - event: Sunday Service
+    frequency: weekly
+    weekday: sunday
+
+  - event: Lifegen Prayer
+    frequency: monthly
+    weekday: tuesday
+    occurrence: first
+
+  - event: Leaders Meet
+    frequency: monthly
+    weekday: friday
+    occurrence: first
+
+  - event: Creative Team Meet
+    frequency: monthly
+    weekday: friday
+    occurrence: last

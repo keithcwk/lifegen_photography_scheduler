@@ -1,0 +1,7 @@
+# Share the target spreadsheet with your service account email as an editor.
+google_sheets:
+  spreadsheet_id: "1vEDY8SNbTKOyvSPSxq8xqzSrNZvld3nBD8SvQu3x2Gw"
+  worksheet_title: "GPT Schedule Q2 Test"
+  service_account_json: "/Users/keithchan/Downloads/photo_scheduler_system/lifegen-scheduler-cb08abeb95b2.json"
+  clear_before_write: true
+  create_worksheet_if_missing: true

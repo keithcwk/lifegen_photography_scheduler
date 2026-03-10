@@ -1,0 +1,110 @@
+sheet_layout:
+  orientation: column_based_event_matrix
+  description: >
+    Each event occupies one column. Rows represent event metadata first, then
+    assignment roles. A separate summary section tracks workload, and a bad
+    dates section records availability constraints.
+  blank_event_titles:
+    - Sunday Service
+
+  event_column:
+    metadata_rows:
+      - row: 1
+        key: event_name
+        label: Event Name
+      - row: 2
+        key: event_date
+        label: Event Date
+      - row: 3
+        key: unavailable
+        label: N/A
+
+    role_rows:
+      - row: 4
+        key: director
+        label: Director
+        required: true
+      - row: 5
+        key: assist
+        label: Assist
+        required: false
+      - row: 6
+        key: photographer_1
+        label: Photographer 1
+        required: true
+      - row: 7
+        key: photographer_2
+        label: Photographer 2
+        required: true
+      - row: 8
+        key: photographer_3
+        label: Photographer 3
+        required: true
+      - row: 9
+        key: photographer_4
+        label: Photographer 4
+        required: true
+      - row: 10
+        key: photographer_5
+        label: Photographer 5
+        required: false
+      - row: 11
+        key: floor_runner
+        label: Floor runner
+        required: false
+      - row: 12
+        key: sde_1
+        label: SDE 1
+        required: true
+      - row: 13
+        key: sde_2
+        label: SDE 2
+        required: true
+
+  default_event_profiles:
+    sunday_service:
+      uses_roles:
+        - director
+        - photographer_1
+        - photographer_2
+        - photographer_3
+        - photographer_4
+        - sde_1
+        - sde_2
+      optional_roles:
+        - assist
+        - photographer_5
+        - floor_runner
+
+  summary_section:
+    orientation: row_based_members
+    columns:
+      - Name
+      - Shoot
+      - SDE
+      - Direct/Assist
+      - Has Slot
+
+  bad_dates_section:
+    columns:
+      - Member Name
+      - Bad Dates
+
+  canonical_scheduler_format:
+    description: >
+      The scheduler may keep an internal flat format for logic and CSV export,
+      then map it into the Google Sheets event-matrix layout during sheet
+      rendering.
+    columns:
+      - event
+      - date
+      - director
+      - assist
+      - photographer_1
+      - photographer_2
+      - photographer_3
+      - photographer_4
+      - photographer_5
+      - floor_runner
+      - sde_1
+      - sde_2
