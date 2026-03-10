@@ -6,48 +6,61 @@ The scheduler now uses event requirements, role capability, availability, and si
 ## Files
 
 `rules/rulebook.md`
-Human-readable rules and philosophy.
+
+- Human-readable rules and philosophy.
 
 `data/team.yaml`
-Defines the team structure.
-Greens support explicit `shoot_rank`, `direct_rank`, and `editor_rank` fields.
+
+- Defines the team structure.
+- Greens support explicit `shoot_rank`, `direct_rank`, and `editor_rank` fields.
 
 `data/events.md`
-List of events and dates.
-Event names here must exist in `config/event_types.yaml`.
-This file can also contain a `## Exclusions` section to suppress specific generated or explicit events.
+
+- List of events and dates.
+- Event names here must exist in `config/event_types.yaml`.
+- This file can also contain a `## Exclusions` section to suppress specific generated or explicit events.
 
 `data/bad_dates.md`
-Quarter-by-quarter unavailable dates for each member.
+
+- Quarter-by-quarter unavailable dates for each member.
 
 `config/event_types.yaml`
-Defines requirements per event type.
+
+- Defines requirements per event type.
 
 `config/recurring_events.yaml`
-Defines recurring monthly events that are auto-added during schedule generation.
-This also supports weekly recurring events such as Sunday Service.
-It can also extend recurring generation past the last explicit event month.
+
+- Defines recurring monthly events that are auto-added during schedule generation.
+- This also supports weekly recurring events such as Sunday Service.
+- It can also extend recurring generation past the last explicit event month.
 
 `config/google_sheets_styles.yaml`
-Defines the visual styling tokens for a future Google Sheets export.
+
+- Defines the visual styling tokens for a future Google Sheets export.
 
 `config/google_sheets_layout.yaml`
-Defines the sheet structure for the Google Sheets event-matrix layout.
+
+- Defines the sheet structure for the Google Sheets event-matrix layout.
 
 `config/google_sheets_sync.yaml`
-Defines which spreadsheet and worksheet to push to, plus the service account JSON path.
+
+- Defines which spreadsheet and worksheet to push to, plus the service account JSON path.
 
 `scripts/generate_schedule.py`
-Python script that generates the schedule.
+
+- Python script that generates the schedule.
 
 `scripts/push_schedule_to_google_sheet.py`
-Pushes the generated schedule into a specific Google Sheet worksheet.
+
+- Pushes the generated schedule into a specific Google Sheet worksheet.
 
 `output/`
-Generated `schedule.csv`
+
+- Generated `schedule.csv`
 
 `output/google_sheets_styles.yaml`
-Validated style manifest copied from the config during generation.
+
+- Validated style manifest copied from the config during generation.
 
 ## How To Use
 
@@ -131,13 +144,11 @@ You can import this into Google Sheets.
 1. Create a Google Cloud service account and enable the Google Sheets API.
 2. Share your target spreadsheet with the service account email as an editor.
 3. Fill in `config/google_sheets_sync.yaml`:
-
    - `spreadsheet_id`
    - `worksheet_title`
    - `service_account_json`
 
 4. Install the Python dependencies needed for Google Sheets sync:
-
    - `pip install -r requirements.txt`
 
 If you use the repo-local virtualenv:
