@@ -57,10 +57,10 @@ Validated style manifest copied from the config during generation.
 
 Example template:
 
-<!--
+```
 12 Sep 2026 - Mother's Day
 13 Sep 2026 - Creative Team Meet
--->
+```
 
 `data/events.md` should contain your one-off events. Recurring monthly events are added automatically from `config/recurring_events.yaml`.
 If you need to skip a specific recurring date, add it under `## Exclusions` using the same `DD Mon YYYY - Event Name` format.
