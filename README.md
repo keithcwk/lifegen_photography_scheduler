@@ -5,55 +5,55 @@ The scheduler now uses event requirements, role capability, availability, and si
 
 ## Files
 
-rules/rulebook.md
+`rules/rulebook.md`
 Human-readable rules and philosophy.
 
-data/team.yaml
+`data/team.yaml`
 Defines the team structure.
 Greens support explicit `shoot_rank`, `direct_rank`, and `editor_rank` fields.
 
-data/events.md
+`data/events.md`
 List of events and dates.
 Event names here must exist in `config/event_types.yaml`.
 This file can also contain a `## Exclusions` section to suppress specific generated or explicit events.
 
-data/bad_dates.md
+`data/bad_dates.md`
 Quarter-by-quarter unavailable dates for each member.
 
-config/event_types.yaml
+`config/event_types.yaml`
 Defines requirements per event type.
 
-config/recurring_events.yaml
+`config/recurring_events.yaml`
 Defines recurring monthly events that are auto-added during schedule generation.
 This also supports weekly recurring events such as Sunday Service.
 It can also extend recurring generation past the last explicit event month.
 
-config/google_sheets_styles.yaml
+`config/google_sheets_styles.yaml`
 Defines the visual styling tokens for a future Google Sheets export.
 
-config/google_sheets_layout.yaml
+`config/google_sheets_layout.yaml`
 Defines the sheet structure for the Google Sheets event-matrix layout.
 
-config/google_sheets_sync.yaml
+`config/google_sheets_sync.yaml`
 Defines which spreadsheet and worksheet to push to, plus the service account JSON path.
 
-scripts/generate_schedule.py
+`scripts/generate_schedule.py`
 Python script that generates the schedule.
 
-scripts/push_schedule_to_google_sheet.py
+`scripts/push_schedule_to_google_sheet.py`
 Pushes the generated schedule into a specific Google Sheet worksheet.
 
-output/
-Generated schedule.csv
+`output/`
+Generated `schedule.csv`
 
-output/google_sheets_styles.yaml
+`output/google_sheets_styles.yaml`
 Validated style manifest copied from the config during generation.
 
 ## How To Use
 
 1. Edit the events list:
 
-data/events.md
+`data/events.md`
 
 Example template:
 
@@ -67,7 +67,7 @@ If you need to skip a specific recurring date, add it under `## Exclusions` usin
 
 2. Update team members if needed:
 
-data/team.yaml
+`data/team.yaml`
 
 Green members can now be ranked per role, for example:
 
@@ -83,7 +83,7 @@ Lower numbers mean higher priority for that role.
 
 3. Add any unavailable dates for the quarter:
 
-data/bad_dates.md
+`data/bad_dates.md`
 
 Example template:
 
@@ -100,7 +100,7 @@ Example template:
 
 4. Run the generator:
 
-python scripts/generate_schedule.py
+`python scripts/generate_schedule.py`
 
 The scheduler will:
 
@@ -118,11 +118,11 @@ Quarter headings can be written as `2026 Q2` or `Q2 2026`.
 
 5. The schedule will appear in:
 
-output/schedule.csv
+`output/schedule.csv`
 
 The validated style manifest will also appear in:
 
-output/google_sheets_styles.yaml
+`output/google_sheets_styles.yaml`
 
 You can import this into Google Sheets.
 
