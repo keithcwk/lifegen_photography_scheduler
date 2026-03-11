@@ -78,6 +78,7 @@ This accompaniment must be visible within the photographer lineup, not only in d
 - Leaders Meet only needs 1 photographer
 - Creative Team Meet and Lifegen Prayer should be balanced across the quarter so the same person is not repeated in the same role too often
 - Each photographer should ideally be able to serve 1 Sunday per month; low tier events are additional opportunities and should not replace a Sunday slot
+- If a special event falls on a Sunday, that special event replaces Sunday Service for that date and no separate Sunday Service should be scheduled
 - Photographers should ideally not be assigned more than 2 times in the same month, regardless of event tier
 - Red members should not be scheduled more than 2 times in the same month
 - Avoid serving consecutive weeks if possible; high tier events can be an exception when stronger coverage is needed
@@ -104,7 +105,7 @@ Low Risk:
 
 ## Recurring Planning Rules
 
-- Every Sunday is Sunday Service
+- Every Sunday is Sunday Service unless a special event is scheduled on that Sunday; in that case the special event is the only event for that day
 - The first Tuesday of every month is Lifegen Prayer
 - The first Friday of every month is Leaders Meet
 - The last Friday of every month is Creative Team Meet
