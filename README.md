@@ -121,6 +121,39 @@ To push to Google Sheets you still need:
 - a service account JSON path in `config/google_sheets_sync.yaml`
 - the spreadsheet shared with the service account as `Editor`
 
+### Google Credentials Setup
+
+1. Open Google Cloud Console and create or choose a project.
+2. Enable the Google Sheets API for that project.
+3. Create a Service Account for the project.
+4. Create a JSON key for that service account and download it.
+5. Save that JSON file somewhere on your Mac.
+   Example: `/Users/yourname/path/to/google_credentials.json`
+6. Put that absolute file path into `config/google_sheets_sync.yaml` or the matching section in `UNIVERSAL_SCHEDULER.md`:
+
+```yaml
+google_sheets:
+  spreadsheet_id: "YOUR_SPREADSHEET_ID"
+  worksheet_title: "Your Sheet Tab Name"
+  service_account_json: "/Users/yourname/path/to/google_credentials.json"
+  clear_before_write: false
+  create_worksheet_if_missing: true
+```
+
+7. Open the target Google Sheet and share it with the service account email as an `Editor`.
+   The service account email is inside the JSON file under `client_email`.
+8. Run:
+
+```bash
+./.venv/bin/python scripts/push_schedule_to_google_sheet.py
+```
+
+Notes:
+
+- `google_credentials.json` is already ignored by git in this repo, so it will not be committed by default.
+- If push fails with a permission error, the sheet is usually not shared with the service account yet.
+- If push fails with an API-disabled error, enable Google Sheets API in the same Google Cloud project and retry after a few minutes.
+
 Values-only push is available if you want to preserve live formatting:
 
 ```bash
