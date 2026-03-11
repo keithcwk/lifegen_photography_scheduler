@@ -121,6 +121,198 @@ def build_range(sheet_title, start_row, start_col, values):
     )
 
 
+def max_row_width(values):
+    return max((len(row) for row in values), default=0)
+
+
+def extract_block(values, start_row, start_col, row_count, col_count):
+    block = []
+    for row_offset in range(row_count):
+        source_row_index = start_row - 1 + row_offset
+        source_row = values[source_row_index] if source_row_index < len(values) else []
+        block.append(
+            [
+                source_row[start_col - 1 + col_offset]
+                if (start_col - 1 + col_offset) < len(source_row)
+                else ""
+                for col_offset in range(col_count)
+            ]
+        )
+    return block
+
+
+def block_width(values, start_row, row_count, start_col):
+    width = 0
+    for row_offset in range(row_count):
+        source_row_index = start_row - 1 + row_offset
+        if source_row_index >= len(values):
+            break
+        width = max(width, max(0, len(values[source_row_index]) - (start_col - 1)))
+    return width
+
+
+def managed_height(values, start_row, column_ranges):
+    last_relative_row = -1
+    for source_row_index in range(start_row - 1, len(values)):
+        source_row = values[source_row_index]
+        has_data = False
+        for start_col, width in column_ranges:
+            if width <= 0:
+                continue
+            row_slice = source_row[start_col - 1 : start_col - 1 + width]
+            if any(cell != "" for cell in row_slice):
+                has_data = True
+                break
+        if has_data:
+            last_relative_row = source_row_index - (start_row - 1)
+    return last_relative_row + 1
+
+
+def build_block_updates(sheet_title, start_row, start_col, target_values, current_values):
+    row_count = max(len(target_values), len(current_values))
+    col_count = max(max_row_width(target_values), max_row_width(current_values))
+    updates = []
+    changed_cells = 0
+
+    for row_offset in range(row_count):
+        target_row = target_values[row_offset] if row_offset < len(target_values) else []
+        current_row = current_values[row_offset] if row_offset < len(current_values) else []
+
+        col_offset = 0
+        while col_offset < col_count:
+            target_cell = target_row[col_offset] if col_offset < len(target_row) else ""
+            current_cell = current_row[col_offset] if col_offset < len(current_row) else ""
+            if target_cell == current_cell:
+                col_offset += 1
+                continue
+
+            changed_cells += 1
+            segment_start = col_offset
+            segment_values = [target_cell]
+            col_offset += 1
+
+            while col_offset < col_count:
+                next_target = (
+                    target_row[col_offset] if col_offset < len(target_row) else ""
+                )
+                next_current = (
+                    current_row[col_offset] if col_offset < len(current_row) else ""
+                )
+                if next_target == next_current:
+                    break
+                segment_values.append(next_target)
+                changed_cells += 1
+                col_offset += 1
+
+            updates.append(
+                {
+                    "range": build_range(
+                        sheet_title,
+                        start_row + row_offset,
+                        start_col + segment_start,
+                        [segment_values],
+                    ),
+                    "values": [segment_values],
+                }
+            )
+
+    return updates, changed_cells
+
+
+def fetch_sheet_values(service, spreadsheet_id, worksheet_title):
+    response = service.spreadsheets().values().get(
+        spreadsheetId=spreadsheet_id,
+        range=f"'{worksheet_title}'!A:ZZZ",
+    ).execute()
+    return response.get("values", [])
+
+
+def build_incremental_value_updates(
+    worksheet_title,
+    current_sheet_values,
+    event_matrix,
+    summary_values,
+    bad_dates_values,
+):
+    updates = []
+    changed_cells = 0
+
+    event_matrix_height = len(event_matrix)
+    event_matrix_width = max_row_width(event_matrix)
+    current_event_width = block_width(current_sheet_values, 1, event_matrix_height, 1)
+    event_col_count = max(event_matrix_width, current_event_width)
+    current_event_block = extract_block(
+        current_sheet_values,
+        1,
+        1,
+        event_matrix_height,
+        event_col_count,
+    )
+    block_updates, block_changes = build_block_updates(
+        worksheet_title,
+        1,
+        1,
+        event_matrix,
+        current_event_block,
+    )
+    updates.extend(block_updates)
+    changed_cells += block_changes
+
+    summary_start_row = event_matrix_height + 2
+    summary_width = max_row_width(summary_values)
+    bad_dates_start_col = summary_width + 2
+    bad_dates_width = max_row_width(bad_dates_values)
+    current_shared_height = managed_height(
+        current_sheet_values,
+        summary_start_row,
+        [
+            (1, summary_width),
+            (bad_dates_start_col, bad_dates_width),
+        ],
+    )
+    shared_height = max(
+        len(summary_values),
+        len(bad_dates_values),
+        current_shared_height,
+    )
+
+    current_summary_block = extract_block(
+        current_sheet_values,
+        summary_start_row,
+        1,
+        shared_height,
+        summary_width,
+    )
+    block_updates, block_changes = build_block_updates(
+        worksheet_title,
+        summary_start_row,
+        1,
+        summary_values,
+        current_summary_block,
+    )
+    updates.extend(block_updates)
+    changed_cells += block_changes
+
+    current_bad_dates_block = extract_block(
+        current_sheet_values,
+        summary_start_row,
+        bad_dates_start_col,
+        shared_height,
+        bad_dates_width,
+    )
+    block_updates, block_changes = build_block_updates(
+        worksheet_title,
+        summary_start_row,
+        bad_dates_start_col,
+        bad_dates_values,
+        current_bad_dates_block,
+    )
+    updates.extend(block_updates)
+    changed_cells += block_changes
+
+    return updates, changed_cells
+
+
 def build_event_matrix(schedule_rows, layout):
     event_column = layout["sheet_layout"]["event_column"]
     blank_event_titles = set(layout["sheet_layout"].get("blank_event_titles", []))
@@ -964,7 +1156,7 @@ def format_sheet(
 
 
 def push_schedule_to_google_sheet(
-    generate_first=True, apply_formatting=True, sync_styles_first=False
+    generate_first=True, apply_formatting=False, sync_styles_first=False
 ):
     sync_config = load_sync_config()
     layout = load_google_sheets_layout()
@@ -1003,41 +1195,62 @@ def push_schedule_to_google_sheet(
         )
 
         if sync_config["clear_before_write"]:
+            summary_start_row = len(event_matrix) + 2
+            bad_dates_start_col = len(summary_values[0]) + 2
             service.spreadsheets().values().clear(
                 spreadsheetId=sync_config["spreadsheet_id"],
-                range=f"'{sync_config['worksheet_title']}'!A:ZZ",
+                range=f"'{sync_config['worksheet_title']}'!A:ZZZ",
                 body={},
             ).execute()
-
-        summary_start_row = len(event_matrix) + 2
-        bad_dates_start_col = len(summary_values[0]) + 2
-
-        data = [
-            {
-                "range": build_range(sync_config["worksheet_title"], 1, 1, event_matrix),
-                "values": event_matrix,
-            },
-            {
-                "range": build_range(
-                    sync_config["worksheet_title"], summary_start_row, 1, summary_values
-                ),
-                "values": summary_values,
-            },
-            {
-                "range": build_range(
-                    sync_config["worksheet_title"],
-                    summary_start_row,
-                    bad_dates_start_col,
-                    bad_dates_values,
-                ),
-                "values": bad_dates_values,
-            },
-        ]
-
-        service.spreadsheets().values().batchUpdate(
-            spreadsheetId=sync_config["spreadsheet_id"],
-            body={"valueInputOption": "RAW", "data": data},
-        ).execute()
+            data = [
+                {
+                    "range": build_range(
+                        sync_config["worksheet_title"], 1, 1, event_matrix
+                    ),
+                    "values": event_matrix,
+                },
+                {
+                    "range": build_range(
+                        sync_config["worksheet_title"], summary_start_row, 1, summary_values
+                    ),
+                    "values": summary_values,
+                },
+                {
+                    "range": build_range(
+                        sync_config["worksheet_title"],
+                        summary_start_row,
+                        bad_dates_start_col,
+                        bad_dates_values,
+                    ),
+                    "values": bad_dates_values,
+                },
+            ]
+            service.spreadsheets().values().batchUpdate(
+                spreadsheetId=sync_config["spreadsheet_id"],
+                body={"valueInputOption": "RAW", "data": data},
+            ).execute()
+            changed_cells = sum(
+                sum(len(row) for row in values_block["values"])
+                for values_block in data
+            )
+        else:
+            current_sheet_values = fetch_sheet_values(
+                service,
+                sync_config["spreadsheet_id"],
+                sync_config["worksheet_title"],
+            )
+            data, changed_cells = build_incremental_value_updates(
+                sync_config["worksheet_title"],
+                current_sheet_values,
+                event_matrix,
+                summary_values,
+                bad_dates_values,
+            )
+            if data:
+                service.spreadsheets().values().batchUpdate(
+                    spreadsheetId=sync_config["spreadsheet_id"],
+                    body={"valueInputOption": "RAW", "data": data},
+                ).execute()
 
         if apply_formatting:
             format_sheet(
@@ -1061,7 +1274,8 @@ def push_schedule_to_google_sheet(
         )
     else:
         print(
-            "Schedule values pushed to Google Sheets without restyling: "
+            "Schedule values synced incrementally without restyling: "
+            f"{changed_cells} changed cells in "
             f"{sync_config['worksheet_title']} ({sync_config['spreadsheet_id']})"
         )
 
@@ -1101,6 +1315,11 @@ def main():
         help="Update cell contents only and preserve existing Google Sheets styling.",
     )
     parser.add_argument(
+        "--with-formatting",
+        action="store_true",
+        help="Restyle the managed schedule ranges after pushing values.",
+    )
+    parser.add_argument(
         "--sync-styles-from-sheet",
         action="store_true",
         help="Pull the current sheet's managed styles into config/google_sheets_styles.yaml before pushing values.",
@@ -1109,7 +1328,7 @@ def main():
 
     push_schedule_to_google_sheet(
         generate_first=not args.skip_generate,
-        apply_formatting=not args.values_only,
+        apply_formatting=args.with_formatting and not args.values_only,
         sync_styles_first=args.sync_styles_from_sheet,
     )
 

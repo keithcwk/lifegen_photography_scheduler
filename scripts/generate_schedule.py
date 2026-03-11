@@ -126,7 +126,24 @@ def parse_events():
             continue
         deduped[(event["date"].date(), event["event"])] = event
 
-    return sorted(deduped.values(), key=lambda event: event["date"])
+    normalized_events = sorted(deduped.values(), key=lambda event: event["date"])
+    replacement_dates = {
+        event["date"].date()
+        for event in normalized_events
+        if event["event"] != "Sunday Service"
+        and event["date"].weekday() == calendar.SUNDAY
+    }
+    if not replacement_dates:
+        return normalized_events
+
+    return [
+        event
+        for event in normalized_events
+        if not (
+            event["event"] == "Sunday Service"
+            and event["date"].date() in replacement_dates
+        )
+    ]
 
 
 def quarter_key(date_value):
@@ -398,14 +415,21 @@ def build_members(team):
             "can_guide": bool(person.get("can_guide", name == "Dan C")),
         }
 
-    for name in team["reds"]:
+    for person in team["reds"]:
+        if isinstance(person, dict):
+            name = person["name"]
+            shoot_rank = int(person.get("shoot_rank", 999))
+        else:
+            name = str(person)
+            shoot_rank = 999
+
         members[name] = {
             "name": name,
             "role": "red",
             "can_direct": False,
             "can_edit": False,
             "can_shoot": True,
-            "shoot_rank": 999,
+            "shoot_rank": shoot_rank,
             "direct_rank": 999,
             "editor_rank": 999,
             "director_track": False,
@@ -637,6 +661,10 @@ def format_photographer_slots(photographers, members):
     return formatted
 
 
+def visible_photographer_slot_count(photographers, members):
+    return len(format_photographer_slots(photographers, members))
+
+
 def editor_display_rank(name, members):
     member = members[name]
     role_priority = {"green": 0, "yellow": 1, "red": 2}
@@ -678,11 +706,17 @@ def init_stats(members):
         name: {
             "total_events": 0,
             "monthly_events": defaultdict(int),
+            "high_tier_events": 0,
+            "monthly_high_tier_events": defaultdict(int),
+            "high_tier_role_counts": defaultdict(int),
+            "monthly_high_tier_role_counts": defaultdict(lambda: defaultdict(int)),
             "role_counts": defaultdict(int),
             "monthly_role_counts": defaultdict(lambda: defaultdict(int)),
             "monthly_event_role_counts": defaultdict(lambda: defaultdict(lambda: defaultdict(int))),
             "quarterly_event_role_counts": defaultdict(lambda: defaultdict(lambda: defaultdict(int))),
             "last_assigned": None,
+            "last_high_tier_assigned": None,
+            "last_high_tier_role_assigned": {},
         }
         for name in members
     }
@@ -776,6 +810,57 @@ def available_names(members, bad_dates, event_date, used):
     ]
 
 
+def high_tier_shoot_strength_penalty(member, weight_by_role):
+    weight = weight_by_role.get(member["role"])
+    if weight is None:
+        return 0
+    return member["shoot_rank"] * weight
+
+
+def high_tier_rank_spread_penalty(candidate_name, selected_photographers, members):
+    if not selected_photographers:
+        return 0
+
+    existing_ranks = [members[name]["shoot_rank"] for name in selected_photographers]
+    candidate_rank = members[candidate_name]["shoot_rank"]
+    projected_min = min(*existing_ranks, candidate_rank)
+    projected_max = max(*existing_ranks, candidate_rank)
+    projected_spread = projected_max - projected_min
+    average_rank = sum(existing_ranks) / len(existing_ranks)
+
+    penalty = max(0, projected_spread - 4) * 35
+    penalty += int(abs(candidate_rank - average_rank) * 8)
+    return penalty
+
+
+def high_tier_rotation_penalty(stats, name, event_date, role):
+    person_stats = stats[name]
+    penalty = person_stats["high_tier_events"] * 18
+    penalty += person_stats["monthly_high_tier_events"][month_key(event_date)] * 28
+    penalty += person_stats["high_tier_role_counts"][role] * 10
+    penalty += (
+        person_stats["monthly_high_tier_role_counts"][month_key(event_date)][role] * 18
+    )
+
+    last_high_tier = person_stats["last_high_tier_assigned"]
+    if last_high_tier is not None:
+        gap = (event_date.date() - last_high_tier).days
+        if gap < 3:
+            penalty += 45
+        elif gap < 8:
+            penalty += 24
+
+    last_same_role = person_stats["last_high_tier_role_assigned"].get(role)
+    if last_same_role is not None:
+        gap = (event_date.date() - last_same_role).days
+        if gap < 3:
+            penalty += 65
+        elif gap < 8:
+            penalty += 32
+
+    return penalty
+
+
 def director_score(name, members, stats, event_name, event_date, tier):
     member = members[name]
     if not member["can_direct"]:
@@ -790,9 +875,15 @@ def director_score(name, members, stats, event_name, event_date, tier):
     score = fairness_penalty(stats, name, event_date, tier)
     score += role_count_penalty(stats, name, "director")
     score += repeated_event_role_penalty(stats, name, event_name, "director", event_date)
+    if tier == "high":
+        score += high_tier_rotation_penalty(stats, name, event_date, "director")
 
     if member["role"] == "green":
         if tier == "high":
+            score += high_tier_shoot_strength_penalty(
+                member,
+                {"green": 2},
+            )
             score -= max(0, 14 - (member["direct_rank"] * 2))
         elif tier == "low":
             score += 10
@@ -820,6 +911,12 @@ def assist_score(name, members, stats, event_name, event_date, tier="standard"):
     score += repeated_event_role_penalty(stats, name, event_name, "assist", event_date)
     score += role_count_penalty(stats, name, "assist")
     score += monthly_role_count(stats, name, "assist", event_date) * 8
+    if tier == "high":
+        score += high_tier_rotation_penalty(stats, name, event_date, "assist")
+        score += high_tier_shoot_strength_penalty(
+            member,
+            {"green": 3},
+        )
     score -= max(0, 14 - (member["direct_rank"] * 2))
     return score
 
@@ -836,13 +933,25 @@ def editor_score(name, members, stats, event_name, event_date, tier, director_na
     score += repeated_event_role_penalty(stats, name, event_name, "editor", event_date)
 
     if member["role"] == "yellow":
-        rank_weight = {"high": 6, "standard": 3, "low": 1}.get(tier, 3)
-        score += member["editor_rank"] * rank_weight
+        if tier == "high":
+            score += high_tier_rotation_penalty(stats, name, event_date, "editor")
+            score += member["editor_rank"] * 14
+            if member["editor_rank"] > 4:
+                score += (member["editor_rank"] - 4) * 24
+        else:
+            rank_weight = {"standard": 3, "low": 1}.get(tier, 3)
+            score += member["editor_rank"] * rank_weight
     elif member["role"] == "green":
-        score += {"high": 6, "standard": 10, "low": 16}.get(tier, 10)
-        score += member["editor_rank"] * {"high": 2, "standard": 3, "low": 4}.get(
-            tier, 3
-        )
+        if tier == "high":
+            score += high_tier_rotation_penalty(stats, name, event_date, "editor")
+            score += member["editor_rank"] * 10
+            if member["editor_rank"] > 4:
+                score += (member["editor_rank"] - 4) * 18
+        else:
+            score += {"standard": 10, "low": 16}.get(tier, 10)
+            score += member["editor_rank"] * {"standard": 3, "low": 4}.get(
+                tier, 3
+            )
     else:
         return None
 
@@ -850,6 +959,38 @@ def editor_score(name, members, stats, event_name, event_date, tier, director_na
         score += 40
 
     return score
+
+
+def is_strong_editor(name, members):
+    return members[name]["editor_rank"] <= 4
+
+
+def is_lower_tier_editor(name, members):
+    return members[name]["editor_rank"] >= 5
+
+
+def is_strong_sunday_photographer(name, members):
+    member = members[name]
+    return member["role"] != "red" and member["shoot_rank"] <= 8
+
+
+def is_development_heavy_sunday_photographer(name, members):
+    member = members[name]
+    return member["role"] == "red" or (
+        member["role"] == "yellow" and member["shoot_rank"] >= 9
+    )
+
+
+def sunday_strength_metrics(photographers, members):
+    strong_count = sum(
+        1 for name in photographers if is_strong_sunday_photographer(name, members)
+    )
+    development_heavy_count = sum(
+        1
+        for name in photographers
+        if is_development_heavy_sunday_photographer(name, members)
+    )
+    return strong_count, development_heavy_count
 
 
 def photographer_score(name, members, stats, event_name, event_date, tier):
@@ -868,10 +1009,19 @@ def photographer_score(name, members, stats, event_name, event_date, tier):
     score += repeated_event_role_penalty(stats, name, event_name, "photographer", event_date)
 
     if tier == "high":
+        score += high_tier_rotation_penalty(stats, name, event_date, "photographer")
         if member["role"] == "green":
-            score -= max(0, 20 - (member["shoot_rank"] * 2))
+            score += high_tier_shoot_strength_penalty(
+                member,
+                {"green": 5},
+            )
+            score -= 24
         elif member["role"] == "yellow":
-            score += 8 + member["editor_rank"]
+            score += high_tier_shoot_strength_penalty(
+                member,
+                {"yellow": 6},
+            )
+            score += member["editor_rank"]
         else:
             score += 40
     elif tier == "low":
@@ -944,6 +1094,51 @@ def pick_editors(event, members, stats, bad_dates, director_name, used):
         return editor_score(name, members, stats, event["event"], event["date"], tier, director_name)
 
     unused_candidates = available_names(members, bad_dates, event["date"], used)
+    if required >= 2 and tier != "high":
+        strong_candidates = [
+            name
+            for name in unused_candidates
+            if members[name]["can_edit"] and is_strong_editor(name, members)
+        ]
+        lower_tier_candidates = [
+            name
+            for name in unused_candidates
+            if members[name]["can_edit"] and is_lower_tier_editor(name, members)
+        ]
+
+        if not strong_candidates:
+            raise SchedulingError(
+                f"Could not find a stronger editor for {event['date'].strftime('%Y-%m-%d')} {event['event']}."
+            )
+        if not lower_tier_candidates:
+            raise SchedulingError(
+                f"Could not find a lower-tier editor for {event['date'].strftime('%Y-%m-%d')} {event['event']}."
+            )
+
+        strong_editor = choose_best_candidate(
+            strong_candidates,
+            candidate_score,
+            f"Could not find a stronger editor for {event['date'].strftime('%Y-%m-%d')} {event['event']}.",
+        )
+        editors.append(strong_editor)
+
+        lower_tier_editor = choose_best_candidate(
+            [name for name in lower_tier_candidates if name != strong_editor],
+            candidate_score,
+            f"Could not find a lower-tier editor for {event['date'].strftime('%Y-%m-%d')} {event['event']}.",
+        )
+        editors.append(lower_tier_editor)
+
+        return editors
+
+    if tier == "high":
+        strong_unused_candidates = [
+            name
+            for name in unused_candidates
+            if members[name]["can_edit"] and members[name]["editor_rank"] <= 4
+        ]
+        if len(strong_unused_candidates) >= required:
+            unused_candidates = strong_unused_candidates
 
     while len(editors) < required:
         remaining_candidates = [name for name in unused_candidates if name not in editors]
@@ -965,6 +1160,14 @@ def pick_editors(event, members, stats, bad_dates, director_name, used):
         for name in members
         if name not in editors and is_available(name, event["date"], bad_dates)
     ]
+    if tier == "high":
+        strong_fallback_candidates = [
+            name
+            for name in fallback_candidates
+            if members[name]["can_edit"] and members[name]["editor_rank"] <= 4
+        ]
+        if len(strong_fallback_candidates) >= required - len(editors):
+            fallback_candidates = strong_fallback_candidates
 
     while len(editors) < required:
         remaining_candidates = [name for name in fallback_candidates if name not in editors]
@@ -1001,17 +1204,23 @@ def pick_photographers(event, members, stats, bad_dates, director_name, assist, 
     minimum_red_photographers = 0
     max_red_photographers = required
     target_green_photographers = 0
+    target_yellow_photographers = 0
+    target_strong_sunday_photographers = 0
+    preferred_max_development_heavy_sunday_photographers = required
     preferred_max_green_photographers = required
 
     if tier == "high":
         minimum_green_photographers = max(minimum_green_photographers, min(2, required))
         target_green_photographers = min(2, required)
+        target_yellow_photographers = min(2, max(0, required - target_green_photographers))
     elif tier == "standard" and required > 0:
         minimum_green_photographers = 1
 
     if event_name == "Sunday Service":
         minimum_yellow_photographers = max(0, 1 - current_role_counts["yellow"])
         minimum_red_photographers = max(0, 1 - current_role_counts["red"])
+        target_strong_sunday_photographers = min(2, required)
+        preferred_max_development_heavy_sunday_photographers = 2
         preferred_max_green_photographers = 1
 
     if is_service_event(event_name):
@@ -1111,6 +1320,33 @@ def pick_photographers(event, members, stats, bad_dates, director_name, assist, 
         minimum_red_photographers -= 1
 
     while (
+        event_name == "Sunday Service"
+        and len(photographers) < required
+        and sum(
+            1 for name in photographers if is_strong_sunday_photographer(name, members)
+        ) < target_strong_sunday_photographers
+    ):
+        strong_candidates = [
+            name
+            for name in available_shooters()
+            if is_strong_sunday_photographer(name, members) and can_add_photographer(name)
+        ]
+        if not strong_candidates:
+            break
+
+        photographers.append(
+            choose_required_photographer(
+                strong_candidates,
+                members,
+                stats,
+                event["event"],
+                event["date"],
+                tier,
+                "a stronger Sunday photographer",
+            )
+        )
+
+    while (
         tier == "high"
         and len(photographers) < required
         and role_counts(photographers, members)["green"] < target_green_photographers
@@ -1130,6 +1366,31 @@ def pick_photographers(event, members, stats, bad_dates, director_name, assist, 
                 event["date"],
                 tier,
                 "an ideal green photographer for a high tier event",
+            )
+        )
+
+    while (
+        tier == "high"
+        and len(photographers) < required
+        and role_counts(photographers, members)["yellow"] < target_yellow_photographers
+    ):
+        yellow_candidates = [
+            name
+            for name in available_shooters()
+            if members[name]["role"] == "yellow" and can_add_photographer(name)
+        ]
+        if not yellow_candidates:
+            break
+
+        photographers.append(
+            choose_required_photographer(
+                yellow_candidates,
+                members,
+                stats,
+                event["event"],
+                event["date"],
+                tier,
+                "a strong yellow photographer for a high tier event",
             )
         )
 
@@ -1158,6 +1419,14 @@ def pick_photographers(event, members, stats, bad_dates, director_name, assist, 
     while len(photographers) < required:
         current_reds = current_role_counts["red"] + role_counts(photographers, members)["red"]
         current_green_photographers = role_counts(photographers, members)["green"]
+        current_strong_sunday_photographers = sum(
+            1 for existing_name in photographers if is_strong_sunday_photographer(existing_name, members)
+        )
+        current_development_heavy_sunday_photographers = sum(
+            1
+            for existing_name in photographers
+            if is_development_heavy_sunday_photographer(existing_name, members)
+        )
 
         def candidate_score(name):
             if members[name]["role"] == "red" and current_reds >= max_red_photographers:
@@ -1186,10 +1455,29 @@ def pick_photographers(event, members, stats, bad_dates, director_name, assist, 
                 and current_green_photographers >= preferred_max_green_photographers
             ):
                 score += 60
+            if (
+                event_name == "Sunday Service"
+                and is_development_heavy_sunday_photographer(name, members)
+                and current_development_heavy_sunday_photographers
+                >= preferred_max_development_heavy_sunday_photographers
+            ):
+                score += 160
+            if (
+                event_name == "Sunday Service"
+                and current_strong_sunday_photographers < target_strong_sunday_photographers
+                and not is_strong_sunday_photographer(name, members)
+            ):
+                score += 120
             if tier == "low" and name in RISKY_REDS:
                 score += 80
             if name in RISKY_REDS and not anchor_present:
                 score += 40
+            if tier == "high":
+                score += high_tier_rank_spread_penalty(
+                    name,
+                    photographers,
+                    members,
+                )
             return score
 
         candidate_pool = [name for name in available_shooters() if can_add_photographer(name)]
@@ -1202,12 +1490,36 @@ def pick_photographers(event, members, stats, bad_dates, director_name, assist, 
         if (
             event_name == "Sunday Service"
             and current_green_photographers >= preferred_max_green_photographers
+            and current_strong_sunday_photographers >= target_strong_sunday_photographers
+            and current_development_heavy_sunday_photographers
+            < preferred_max_development_heavy_sunday_photographers
         ):
             non_green_candidates = [
                 name for name in candidate_pool if members[name]["role"] != "green"
             ]
             if non_green_candidates:
                 candidate_pool = non_green_candidates
+        if (
+            event_name == "Sunday Service"
+            and current_strong_sunday_photographers < target_strong_sunday_photographers
+        ):
+            strong_candidates = [
+                name for name in candidate_pool if is_strong_sunday_photographer(name, members)
+            ]
+            if strong_candidates:
+                candidate_pool = strong_candidates
+        elif (
+            event_name == "Sunday Service"
+            and current_development_heavy_sunday_photographers
+            >= preferred_max_development_heavy_sunday_photographers
+        ):
+            non_development_candidates = [
+                name
+                for name in candidate_pool
+                if not is_development_heavy_sunday_photographer(name, members)
+            ]
+            if non_development_candidates:
+                candidate_pool = non_development_candidates
         elif tier == "low" and event_name != "Leaders Meet":
             non_green_candidates = [
                 name for name in candidate_pool if members[name]["role"] != "green"
@@ -1232,8 +1544,221 @@ def pick_photographers(event, members, stats, bad_dates, director_name, assist, 
         photographers,
     )
 
+    if event_name == "Sunday Service":
+        photographers = rebalance_sunday_photographers(
+            event,
+            members,
+            stats,
+            bad_dates,
+            used,
+            photographers,
+        )
+
+    while visible_photographer_slot_count(photographers, members) < required:
+        current_reds = current_role_counts["red"] + role_counts(photographers, members)["red"]
+        current_green_photographers = role_counts(photographers, members)["green"]
+
+        def supplemental_candidate_score(name):
+            if name in photographers or name in used:
+                return None
+            if not is_available(name, event["date"], bad_dates):
+                return None
+            if not members[name]["can_shoot"]:
+                return None
+            if members[name]["role"] == "red" and current_reds >= max_red_photographers:
+                return None
+            if name in RISKY_REDS and any(existing in RISKY_REDS for existing in photographers):
+                return None
+
+            projected_photographers = [*photographers, name]
+            anchor_present = has_safety_anchor(projected_photographers, members)
+            if name in RISKY_REDS and not anchor_present:
+                return None
+
+            score = photographer_score(
+                name,
+                members,
+                stats,
+                event["event"],
+                event["date"],
+                tier,
+            )
+            if score is None:
+                return None
+            if (
+                event_name == "Sunday Service"
+                and members[name]["role"] == "green"
+                and current_green_photographers >= preferred_max_green_photographers
+            ):
+                score += 60
+            if tier == "high":
+                score += high_tier_rank_spread_penalty(
+                    name,
+                    photographers,
+                    members,
+                )
+            return score
+
+        supplemental_pool = [
+            name
+            for name in members
+            if name not in photographers and name not in used
+        ]
+        if tier == "high":
+            non_red_candidates = [
+                name for name in supplemental_pool if members[name]["role"] != "red"
+            ]
+            if non_red_candidates:
+                supplemental_pool = non_red_candidates
+
+        chosen = choose_best_candidate(
+            supplemental_pool,
+            supplemental_candidate_score,
+            (
+                f"Could not fill the visible photographer slots for "
+                f"{event['date'].strftime('%Y-%m-%d')} {event['event']}."
+            ),
+        )
+        photographers.append(chosen)
+
+    if event_name == "Sunday Service":
+        photographers = rebalance_sunday_photographers(
+            event,
+            members,
+            stats,
+            bad_dates,
+            used,
+            photographers,
+        )
+
     validate_team_composition(event, members, director_name, used, assist, photographers)
     return photographers
+
+
+def can_use_sunday_photographer_lineup(event, members, used, photographers):
+    assigned_names = [*used, *photographers]
+    counts = role_counts(assigned_names, members)
+    photographer_counts = role_counts(photographers, members)
+
+    if any(counts[role] < 1 for role in ("green", "yellow", "red")):
+        return False
+    if photographer_counts["green"] < 1:
+        return False
+    if is_service_event(event["event"]) and counts["red"] > 2:
+        return False
+    if len(RISKY_REDS.intersection(photographers)) > 1:
+        return False
+    if RISKY_REDS.intersection(photographers) and not has_safety_anchor(photographers, members):
+        return False
+    return True
+
+
+def rebalance_sunday_photographers(event, members, stats, bad_dates, used, photographers):
+    while True:
+        strong_count, development_heavy_count = sunday_strength_metrics(photographers, members)
+        needs_more_strength = strong_count < 2
+        has_too_many_development_slots = development_heavy_count > 2
+
+        if not needs_more_strength and not has_too_many_development_slots:
+            return photographers
+
+        current_red_count = role_counts(photographers, members)["red"]
+        removable_candidates = [
+            name
+            for name in photographers
+            if members[name]["role"] == "yellow" and is_development_heavy_sunday_photographer(name, members)
+        ]
+        if current_red_count > 1:
+            removable_candidates.extend(
+                name for name in photographers if members[name]["role"] == "red"
+            )
+
+        removable_candidates = sorted(
+            set(removable_candidates),
+            key=lambda name: (
+                0 if members[name]["role"] == "red" else 1,
+                -members[name]["shoot_rank"],
+                name,
+            ),
+        )
+        if not removable_candidates:
+            return photographers
+
+        replacement_candidates = [
+            name
+            for name in members
+            if name not in used
+            and name not in photographers
+            and is_available(name, event["date"], bad_dates)
+            and members[name]["can_shoot"]
+            and not is_development_heavy_sunday_photographer(name, members)
+        ]
+        if not replacement_candidates:
+            return photographers
+
+        best_swap = None
+        for removable in removable_candidates:
+            for candidate in replacement_candidates:
+                proposed = [candidate if name == removable else name for name in photographers]
+                if not can_use_sunday_photographer_lineup(event, members, used, proposed):
+                    continue
+
+                proposed_strong_count, proposed_development_heavy_count = sunday_strength_metrics(
+                    proposed,
+                    members,
+                )
+                score = photographer_score(
+                    candidate,
+                    members,
+                    stats,
+                    event["event"],
+                    event["date"],
+                    event["requirements"]["tier"],
+                )
+                if score is None:
+                    continue
+
+                swap_rank = (
+                    0 if proposed_development_heavy_count < development_heavy_count else 1,
+                    0 if proposed_strong_count > strong_count else 1,
+                    proposed_development_heavy_count,
+                    -proposed_strong_count,
+                    score,
+                    candidate,
+                    removable,
+                )
+                if best_swap is None or swap_rank < best_swap[0]:
+                    best_swap = (swap_rank, removable, candidate)
+
+        if best_swap is None:
+            return photographers
+
+        _, removable, candidate = best_swap
+        photographers = [candidate if name == removable else name for name in photographers]
+
+
+def validate_editor_pairing(event, members, editors):
+    if len(editors) < 2:
+        return
+
+    strong_editors = [name for name in editors if is_strong_editor(name, members)]
+    lower_tier_editors = [name for name in editors if is_lower_tier_editor(name, members)]
+
+    if event["requirements"]["tier"] == "high":
+        if len(strong_editors) < 2:
+            raise SchedulingError(
+                f"{event['event']} on {event['date'].strftime('%Y-%m-%d')} must use stronger editors in both editor slots."
+            )
+        return
+
+    if not strong_editors or not lower_tier_editors:
+        raise SchedulingError(
+            f"{event['event']} on {event['date'].strftime('%Y-%m-%d')} must include 1 stronger editor and 1 lower-tier editor."
+        )
+    if len(lower_tier_editors) >= 2:
+        raise SchedulingError(
+            f"{event['event']} on {event['date'].strftime('%Y-%m-%d')} cannot schedule 2 lower-tier editors together."
+        )
 
 
 def validate_team_composition(event, members, director_name, used, assist, photographers):
@@ -1287,6 +1812,27 @@ def validate_team_composition(event, members, director_name, used, assist, photo
         if missing_roles:
             raise SchedulingError(
                 f"Sunday Service on {event['date'].strftime('%Y-%m-%d')} must include at least 1 green, 1 yellow, and 1 red. Missing: {', '.join(missing_roles)}."
+            )
+        visible_slots = visible_photographer_slot_count(photographers, members)
+        if visible_slots < event["requirements"]["photographers"]:
+            raise SchedulingError(
+                f"Sunday Service on {event['date'].strftime('%Y-%m-%d')} must show 4 photographer slots after red pairings are collapsed. Found {visible_slots}."
+            )
+        strong_sunday_photographers = sum(
+            1 for name in photographers if is_strong_sunday_photographer(name, members)
+        )
+        if strong_sunday_photographers < 2:
+            raise SchedulingError(
+                f"Sunday Service on {event['date'].strftime('%Y-%m-%d')} must keep at least 2 stronger photographer assignments when workable."
+            )
+        development_heavy_sunday_photographers = sum(
+            1
+            for name in photographers
+            if is_development_heavy_sunday_photographer(name, members)
+        )
+        if development_heavy_sunday_photographers > 2:
+            raise SchedulingError(
+                f"Sunday Service on {event['date'].strftime('%Y-%m-%d')} has too many development-heavy photographer assignments."
             )
 
     if is_service_event(event["event"]) and counts["red"] > 2:
@@ -1368,32 +1914,53 @@ def update_stats(stats, event, director, assist, editors, photographers):
     event_date = event["date"]
     month = month_key(event_date)
     quarter = quarter_key(event_date.date())
+    tier = event["requirements"]["tier"]
     participants = set([director, *([assist] if assist else []), *editors, *photographers])
 
     for name in participants:
         stats[name]["total_events"] += 1
         stats[name]["monthly_events"][month] += 1
         stats[name]["last_assigned"] = event_date.date()
+        if tier == "high":
+            stats[name]["high_tier_events"] += 1
+            stats[name]["monthly_high_tier_events"][month] += 1
+            stats[name]["last_high_tier_assigned"] = event_date.date()
 
     stats[director]["role_counts"]["director"] += 1
     stats[director]["monthly_role_counts"][month]["director"] += 1
     stats[director]["monthly_event_role_counts"][month][event["event"]]["director"] += 1
     stats[director]["quarterly_event_role_counts"][quarter][event["event"]]["director"] += 1
+    if tier == "high":
+        stats[director]["high_tier_role_counts"]["director"] += 1
+        stats[director]["monthly_high_tier_role_counts"][month]["director"] += 1
+        stats[director]["last_high_tier_role_assigned"]["director"] = event_date.date()
     if assist:
         stats[assist]["role_counts"]["assist"] += 1
         stats[assist]["monthly_role_counts"][month]["assist"] += 1
         stats[assist]["monthly_event_role_counts"][month][event["event"]]["assist"] += 1
         stats[assist]["quarterly_event_role_counts"][quarter][event["event"]]["assist"] += 1
+        if tier == "high":
+            stats[assist]["high_tier_role_counts"]["assist"] += 1
+            stats[assist]["monthly_high_tier_role_counts"][month]["assist"] += 1
+            stats[assist]["last_high_tier_role_assigned"]["assist"] = event_date.date()
     for name in editors:
         stats[name]["role_counts"]["editor"] += 1
         stats[name]["monthly_role_counts"][month]["editor"] += 1
         stats[name]["monthly_event_role_counts"][month][event["event"]]["editor"] += 1
         stats[name]["quarterly_event_role_counts"][quarter][event["event"]]["editor"] += 1
+        if tier == "high":
+            stats[name]["high_tier_role_counts"]["editor"] += 1
+            stats[name]["monthly_high_tier_role_counts"][month]["editor"] += 1
+            stats[name]["last_high_tier_role_assigned"]["editor"] = event_date.date()
     for name in photographers:
         stats[name]["role_counts"]["photographer"] += 1
         stats[name]["monthly_role_counts"][month]["photographer"] += 1
         stats[name]["monthly_event_role_counts"][month][event["event"]]["photographer"] += 1
         stats[name]["quarterly_event_role_counts"][quarter][event["event"]]["photographer"] += 1
+        if tier == "high":
+            stats[name]["high_tier_role_counts"]["photographer"] += 1
+            stats[name]["monthly_high_tier_role_counts"][month]["photographer"] += 1
+            stats[name]["last_high_tier_role_assigned"]["photographer"] = event_date.date()
 
 
 def generate_schedule():
@@ -1436,6 +2003,7 @@ def generate_schedule():
         photographers = pick_photographers(
             event, members, stats, bad_dates, director, assist, used
         )
+        validate_editor_pairing(event, members, editors)
 
         unavailable = sorted(
             name for name, dates in bad_dates.items() if event["date"].date() in dates

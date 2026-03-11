@@ -68,10 +68,23 @@ This accompaniment must be visible within the photographer lineup, not only in d
 - High tier events should avoid reds if possible
 - Standard and high tier events with photographer slots must include at least 1 green photographer
 - High tier events must include at least 2 green photographer slots
+- High tier events can afford to use 2 strong greens and 2 strong yellows when that gives the best overall roster
 - High tier events ideally should have no red photographer slots
+- High tier events should prefer stronger `shoot_rank` values across the shooting team, while still respecting availability, fairness, safety, and minimum composition rules
+- High tier events should prioritize stronger editors
+- High tier events should avoid overly wide `shoot_rank` gaps within the photographer lineup when a tighter lineup is workable
+- High tier events should also rotate opportunities across qualified members where workable; do not keep reusing the same shortlist or choose only by rank, and consider the overall fit of the full roster across director, editor, and photographer roles
+- High tier events should make sure the same person is not used too often across high tier assignments
 - Low tier events should prioritize yellow and red photographer opportunities
 - Low tier events should generally avoid using greens in photographer slots unless needed to keep the schedule workable
 - Sunday Service must include at least 1 green, 1 yellow, and 1 red
+- Sunday Service must show 4 photographer slots after any red-supervision pairings are collapsed into a single slot
+- Sunday Service should keep at least 2 stronger photographer assignments when workable
+- Sunday Service should avoid lineups made up of too many lower-ranked yellows and reds
+- Sunday Service should avoid using more than 2 development-heavy photographer assignments when workable
+- Events with 2 editor slots should generally pair 1 stronger editor with 1 lower-tier editor
+- Events with 2 editor slots must not schedule 2 lower-tier editors together as the editor pair
+- High tier events with 2 editor slots should use stronger editors in both slots
 - Sunday Service should ideally avoid having 2 green photographer slots
 - No service may have more than 2 reds
 - Leaders Meet should only schedule members marked as leaders in `data/team.yaml`

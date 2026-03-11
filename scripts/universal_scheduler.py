@@ -279,7 +279,7 @@ TEMPLATE_SECTION_CONTENTS = {
           spreadsheet_id: "YOUR_SPREADSHEET_ID"
           worksheet_title: "Schedule"
           service_account_json: "/absolute/path/to/google_credentials.json"
-          clear_before_write: true
+          clear_before_write: false
           create_worksheet_if_missing: true
         """
     ),
@@ -334,7 +334,7 @@ def write_universal_scheduler_template(path=UNIVERSAL_TEMPLATE_PATH):
 
 def replace_section_in_universal_text(document_text, target, language, content):
     pattern = re.compile(
-        rf"(^## {re.escape(target)}\n```{re.escape(language)}\n)(.*?)(\n```\n?)",
+        rf"(^## {re.escape(target)}\n(?:\n)*```{re.escape(language)}\n)(.*?)(\n```\n?)",
         re.DOTALL | re.MULTILINE,
     )
     match = pattern.search(document_text)
@@ -493,7 +493,14 @@ def sync_rulebook_with_team_sections(sections):
         for person in yellows
         if bool(person.get("director_track", False))
     ]
-    reds = [str(name).strip() for name in team_data.get("reds", []) if str(name).strip()]
+    reds = []
+    for person in team_data.get("reds", []):
+        if isinstance(person, dict):
+            name = str(person.get("name", "")).strip()
+        else:
+            name = str(person).strip()
+        if name:
+            reds.append(name)
 
     rulebook = sections["rules/rulebook.md"]
     yellow_block = "\n".join(
@@ -629,11 +636,27 @@ def validate_universal_scheduler_sections(sections):
         if not isinstance(reds, list):
             issues.append("data/team.yaml: 'reds' must be a list.")
         else:
-            for index, name in enumerate(reds, start=1):
-                if not isinstance(name, str) or not name.strip():
-                    issues.append(f"data/team.yaml: reds entry #{index} must be a member name string.")
+            for index, person in enumerate(reds, start=1):
+                if isinstance(person, dict):
+                    normalized_name = str(person.get("name", "")).strip()
+                    if not normalized_name:
+                        issues.append(f"data/team.yaml: reds entry #{index} is missing 'name'.")
+                        continue
+                    if "shoot_rank" in person:
+                        _check_positive_int(
+                            person.get("shoot_rank"),
+                            "data/team.yaml",
+                            "shoot_rank",
+                            issues,
+                            normalized_name,
+                        )
+                elif isinstance(person, str) and person.strip():
+                    normalized_name = person.strip()
+                else:
+                    issues.append(
+                        f"data/team.yaml: reds entry #{index} must be a member name string or a map with 'name'."
+                    )
                     continue
-                normalized_name = name.strip()
                 if normalized_name in member_names:
                     issues.append(f"data/team.yaml: duplicate member name '{normalized_name}'.")
                 member_names.add(normalized_name)

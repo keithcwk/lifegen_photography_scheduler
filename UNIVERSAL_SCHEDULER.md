@@ -7,12 +7,14 @@ After editing, run the validator or the generate script.
 If this file is newer than the generated repo files, schedule generation auto-syncs from it.
 
 Safe workflow for non-dev users:
+
 1. Edit the content inside the code block for the section you want to change.
 2. Run `executables/Validate Universal Scheduler.command` or `python scripts/compile_universal_scheduler.py --check`.
 3. Run `executables/Generate Schedule.command` or `python scripts/generate_schedule.py`.
 4. If needed, run `executables/Push Schedule To Google Sheets.command`.
 
 ## rules/rulebook.md
+
 ```md
 # Church Photography Scheduling Rulebook
 
@@ -84,10 +86,23 @@ This accompaniment must be visible within the photographer lineup, not only in d
 - High tier events should avoid reds if possible
 - Standard and high tier events with photographer slots must include at least 1 green photographer
 - High tier events must include at least 2 green photographer slots
+- High tier events can afford to use 2 strong greens and 2 strong yellows when that gives the best overall roster
 - High tier events ideally should have no red photographer slots
+- High tier events should prefer stronger `shoot_rank` values across the shooting team, while still respecting availability, fairness, safety, and minimum composition rules
+- High tier events should prioritize stronger editors
+- High tier events should avoid overly wide `shoot_rank` gaps within the photographer lineup when a tighter lineup is workable
+- High tier events should also rotate opportunities across qualified members where workable; do not keep reusing the same shortlist or choose only by rank, and consider the overall fit of the full roster across director, editor, and photographer roles
+- High tier events should make sure the same person is not used too often across high tier assignments
 - Low tier events should prioritize yellow and red photographer opportunities
 - Low tier events should generally avoid using greens in photographer slots unless needed to keep the schedule workable
 - Sunday Service must include at least 1 green, 1 yellow, and 1 red
+- Sunday Service must show 4 photographer slots after any red-supervision pairings are collapsed into a single slot
+- Sunday Service should keep at least 2 stronger photographer assignments when workable
+- Sunday Service should avoid lineups made up of too many lower-ranked yellows and reds
+- Sunday Service should avoid using more than 2 development-heavy photographer assignments when workable
+- Events with 2 editor slots should generally pair 1 stronger editor with 1 lower-tier editor
+- Events with 2 editor slots must not schedule 2 lower-tier editors together as the editor pair
+- High tier events with 2 editor slots should use stronger editors in both slots
 - Sunday Service should ideally avoid having 2 green photographer slots
 - No service may have more than 2 reds
 - Leaders Meet should only schedule members marked as leaders in `data/team.yaml`
@@ -139,21 +154,15 @@ Low Risk:
 - Train new directors (Charites and Dan C)
 - Greens should shoot or direct at least once per month
 ```
-```
-```
-```
-```
-```
-```
-```
-```
-```
-```
-```
-```
+
 ```
 
+```
+
+````
+
 ## data/team.yaml
+
 ```yaml
 greens:
   - name: Nic
@@ -187,49 +196,66 @@ greens:
     leader: true
 
   - name: Joseph
-    shoot_rank: 6
+    shoot_rank: 8
     direct_rank: 6
     editor_rank: 6
     leader: true
 
 yellows:
   - name: Charites
+    shoot_rank: 6
     editor_rank: 1
     director_track: true
 
   - name: Dan C
+    shoot_rank: 7
     editor_rank: 2
     director_track: true
 
   - name: Jia En
+    shoot_rank: 8
     editor_rank: 3
 
   - name: Cindy
+    shoot_rank: 9
     editor_rank: 4
 
   - name: Patrick
+    shoot_rank: 11
     editor_rank: 5
 
   - name: Wing Yan
+    shoot_rank: 10
     editor_rank: 6
 
   - name: Janelle
+    shoot_rank: 12
     editor_rank: 7
 
   - name: Felise
+    shoot_rank: 13
     editor_rank: 8
 
   - name: Ashley
+    shoot_rank: 14
     editor_rank: 9
 
 reds:
-  - Alvin
-  - Josiah
-  - Issac
-  - Aslvin
-```
+  - name: Alvin
+    shoot_rank: 15
+
+  - name: Josiah
+    shoot_rank: 16
+
+  - name: Issac
+    shoot_rank: 17
+
+  - name: Aslvin
+    shoot_rank: 18
+````
 
 ## data/events.md
+
 ```md
 # Events
 
@@ -267,6 +293,7 @@ Example
 ```
 
 ## data/bad_dates.md
+
 ```md
 # Bad Dates
 
@@ -290,6 +317,7 @@ Example
 ```
 
 ## config/event_types.yaml
+
 ```yaml
 events:
   Sunday Service:
@@ -348,6 +376,7 @@ events:
 ```
 
 ## config/recurring_events.yaml
+
 ```yaml
 generation_window:
   months_after_last_explicit_event: 1
@@ -374,6 +403,7 @@ recurring_events:
 ```
 
 ## config/google_sheets_styles.yaml
+
 ```yaml
 sheet:
   freeze_header_row: true
@@ -430,6 +460,7 @@ borders:
 ```
 
 ## config/google_sheets_layout.yaml
+
 ```yaml
 sheet_layout:
   orientation: column_based_event_matrix
@@ -544,12 +575,13 @@ sheet_layout:
 ```
 
 ## config/google_sheets_sync.yaml
+
 ```yaml
 # Share the target spreadsheet with your service account email as an editor.
 google_sheets:
   spreadsheet_id: "1vEDY8SNbTKOyvSPSxq8xqzSrNZvld3nBD8SvQu3x2Gw"
   worksheet_title: "GPT Schedule Q2 Test"
   service_account_json: "/Users/keithchan/Codes/lifegen_photography_scheduler/google_credentials.json"
-  clear_before_write: true
+  clear_before_write: false
   create_worksheet_if_missing: true
 ```

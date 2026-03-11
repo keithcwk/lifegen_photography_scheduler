@@ -3,5 +3,5 @@ google_sheets:
   spreadsheet_id: "1vEDY8SNbTKOyvSPSxq8xqzSrNZvld3nBD8SvQu3x2Gw"
   worksheet_title: "GPT Schedule Q2 Test"
   service_account_json: "/Users/keithchan/Codes/lifegen_photography_scheduler/google_credentials.json"
-  clear_before_write: true
+  clear_before_write: false
   create_worksheet_if_missing: true
