@@ -3,31 +3,37 @@ greens:
     shoot_rank: 1
     direct_rank: 1
     editor_rank: 2
+    leader: true
 
   - name: Keith
     shoot_rank: 2
     direct_rank: 2
     editor_rank: 1
+    leader: true
 
   - name: Dennis
     shoot_rank: 3
     direct_rank: 3
     editor_rank: 3
+    leader: true
 
   - name: Gavin
     shoot_rank: 4
     direct_rank: 4
     editor_rank: 4
+    leader: true
 
   - name: Huey Chyi
     shoot_rank: 5
     direct_rank: 5
     editor_rank: 5
+    leader: true
 
   - name: Joseph
     shoot_rank: 6
     direct_rank: 6
     editor_rank: 6
+    leader: true
 
 yellows:
   - name: Charites
@@ -53,8 +59,11 @@ yellows:
   - name: Janelle
     editor_rank: 7
 
-  - name: Ashley
+  - name: Felise
     editor_rank: 8
+
+  - name: Ashley
+    editor_rank: 9
 
 reds:
   - Alvin

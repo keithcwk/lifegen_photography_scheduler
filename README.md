@@ -1,227 +1,143 @@
 # Church Photography Scheduler
 
-This project generates a photography schedule automatically from simple files.
-The scheduler now uses event requirements, role capability, availability, and simple fairness heuristics instead of a fixed rotation.
+This repo can now be used in a non-developer workflow.
+The main file a normal user should edit is `UNIVERSAL_SCHEDULER.md`.
+Everything else is generated from it or used by the scripts.
 
-## Files
+## Start Here
 
-`rules/rulebook.md`
+If you are not technical, use this workflow only:
 
-- Human-readable rules and philosophy.
+1. Open `UNIVERSAL_SCHEDULER.md`
+2. Edit only inside the fenced code blocks
+3. Run `executables/Validate Universal Scheduler.command`
+4. Run `executables/Generate Schedule.command`
+5. If needed, run `executables/Push Schedule To Google Sheets.command`
 
-`data/team.yaml`
+Do not rename the `## rules/...`, `## data/...`, or `## config/...` headings.
+Do not remove the triple backticks.
 
-- Defines the team structure.
-- Greens support explicit `shoot_rank`, `direct_rank`, and `editor_rank` fields.
+## Safe Files
 
-`data/events.md`
+Normal users only need these files:
 
-- List of events and dates.
-- Event names here must exist in `config/event_types.yaml`.
-- This file can also contain a `## Exclusions` section to suppress specific generated or explicit events.
+- `UNIVERSAL_SCHEDULER.md`: the single source of truth you edit
+- `UNIVERSAL_SCHEDULER.template.md`: reusable starter template for a new ministry
+- `README.md`: setup and usage guide
 
-`data/bad_dates.md`
+Everything else is support machinery.
 
-- Quarter-by-quarter unavailable dates for each member.
+## One-Click Scripts
 
-`config/event_types.yaml`
+If you are on macOS, you can double-click these files from Finder:
 
-- Defines requirements per event type.
+- `executables/Validate Universal Scheduler.command`
+- `executables/Generate Schedule.command`
+- `executables/Push Schedule To Google Sheets.command`
 
-`config/recurring_events.yaml`
+They use the repo's `.venv` if present. Otherwise they fall back to `python3`.
 
-- Defines recurring monthly events that are auto-added during schedule generation.
-- This also supports weekly recurring events such as Sunday Service.
-- It can also extend recurring generation past the last explicit event month.
-
-`config/google_sheets_styles.yaml`
-
-- Defines the visual styling tokens for a future Google Sheets export.
-
-`config/google_sheets_layout.yaml`
-
-- Defines the sheet structure for the Google Sheets event-matrix layout.
-
-`config/google_sheets_sync.yaml`
-
-- Defines which spreadsheet and worksheet to push to, plus the service account JSON path.
-
-`scripts/generate_schedule.py`
-
-- Python script that generates the schedule.
-
-`scripts/push_schedule_to_google_sheet.py`
-
-- Pushes the generated schedule into a specific Google Sheet worksheet.
-
-`output/`
-
-- Generated `schedule.csv`
-
-`output/google_sheets_styles.yaml`
-
-- Validated style manifest copied from the config during generation.
-
-## How To Use
-
-1. Edit the events list:
-
-`data/events.md`
-
-Example template:
-
-```
-12 Sep 2026 - Mother's Day
-13 Sep 2026 - Creative Team Meet
-```
-
-`data/events.md` should contain your one-off events. Recurring monthly events are added automatically from `config/recurring_events.yaml`.
-If you need to skip a specific recurring date, add it under `## Exclusions` using the same `DD Mon YYYY - Event Name` format.
-
-2. Update team members if needed:
-
-`data/team.yaml`
-
-Green members can now be ranked per role, for example:
-
-```yaml
-greens:
-  - name: Nic
-    shoot_rank: 1
-    direct_rank: 1
-    editor_rank: 2
-```
-
-Lower numbers mean higher priority for that role.
-
-3. Add any unavailable dates for the quarter:
-
-`data/bad_dates.md`
-
-Example template:
-
-<!--
-## 2026 Q2
-
-### Keith
-- 06 Apr 2026
-- 03 May 2026
-
-### Cindy
-- 13 Apr 2026
--->
-
-4. Run the generator:
-
-`python scripts/generate_schedule.py`
-
-The scheduler will:
-
-- skip members on their bad dates
-- use staffing counts from `config/event_types.yaml`
-- auto-add recurring monthly events from `config/recurring_events.yaml`
-- prefer stronger coverage for higher-risk events
-- prioritize yellow/red photographer opportunities on low-tier events, keeping greens mainly for directing/editing there
-- limit director-track members to one directing assignment per month
-- automatically fill a green `Assist` slot when a director-track member is directing
-- spread assignments using simple load-balancing heuristics
-- validate and export the Google Sheets style config
-
-Quarter headings can be written as `2026 Q2` or `Q2 2026`.
-
-5. The schedule will appear in:
-
-`output/schedule.csv`
-
-The validated style manifest will also appear in:
-
-`output/google_sheets_styles.yaml`
-
-You can import this into Google Sheets.
-
-## Push To Google Sheets
-
-1. Create a Google Cloud service account and enable the Google Sheets API.
-2. Share your target spreadsheet with the service account email as an editor.
-3. Fill in `config/google_sheets_sync.yaml`:
-   - `spreadsheet_id`
-   - `worksheet_title`
-   - `service_account_json`
-
-4. Install the Python dependencies needed for Google Sheets sync:
-   - `pip install -r requirements.txt`
-
-If you use the repo-local virtualenv:
+## Command Line Equivalents
 
 ```bash
-python3 -m venv .venv
-./.venv/bin/python -m pip install -r requirements.txt
-```
-
-5. Push the schedule:
-
-```bash
+./.venv/bin/python scripts/compile_universal_scheduler.py --check
+./.venv/bin/python scripts/generate_schedule.py
 ./.venv/bin/python scripts/push_schedule_to_google_sheet.py
 ```
 
-To update only the sheet contents while preserving existing styling:
+Useful extra commands:
+
+```bash
+./.venv/bin/python scripts/compile_universal_scheduler.py --export-current
+./.venv/bin/python scripts/compile_universal_scheduler.py --write-template
+./.venv/bin/python scripts/scheduler_cli.py check-universal
+./.venv/bin/python scripts/scheduler_cli.py compile-universal
+./.venv/bin/python scripts/scheduler_cli.py write-template
+```
+
+## What The Validator Checks
+
+The validator tries to catch the mistakes non-dev users usually make:
+
+- broken YAML in team or config sections
+- unknown member names in bad dates
+- unknown event names in events or recurring rules
+- bad event date format
+- bad quarter headings in bad dates
+- dates placed in the wrong quarter
+- blank Google Sheets sync fields
+- duplicate member names
+
+The goal is for users to see a short list of problems instead of a Python traceback.
+
+## Reusing This For Another Ministry
+
+Use `UNIVERSAL_SCHEDULER.template.md` as the starter.
+
+Suggested process:
+
+1. Copy this repo or duplicate the template file into a new repo
+2. Replace the example team with the new ministry's members
+3. Replace event types and recurring rules with the new ministry's reality
+4. Update Google Sheets settings
+5. Run the validator
+6. Generate the schedule
+
+That gives other teams the same engine, while only changing one human-edited file.
+
+## Team Fields
+
+Useful optional fields inside `data/team.yaml` or the team section of `UNIVERSAL_SCHEDULER.md`:
+
+- `leaders: true` marks members who may serve at `Leaders Meet`
+- `can_guide: true` marks members who may guide `Issac` or `Aslvin`
+- greens still use `shoot_rank`, `direct_rank`, and `editor_rank`
+- yellows still use `editor_rank`, and may also use `director_track: true`
+
+Guided photographer slots are displayed as `Name + Guide`, for example `Issac + Dan C`.
+
+## Files Generated From The Universal File
+
+All managed files in the universal scheduler are now kept in sync automatically with their matching sections inside `UNIVERSAL_SCHEDULER.md`. If one of the generated files is edited directly, the more recently edited copy wins during validation, compile, and schedule generation.
+
+When `UNIVERSAL_SCHEDULER.md` is newer than the generated repo files, schedule generation automatically syncs these files from it first:
+
+- `rules/rulebook.md`
+- `data/team.yaml`
+- `data/events.md`
+- `data/bad_dates.md`
+- `config/event_types.yaml`
+- `config/recurring_events.yaml`
+- `config/google_sheets_styles.yaml`
+- `config/google_sheets_layout.yaml`
+- `config/google_sheets_sync.yaml`
+
+## Google Sheets
+
+To push to Google Sheets you still need:
+
+- a spreadsheet ID
+- a worksheet title
+- a service account JSON path in `config/google_sheets_sync.yaml`
+- the spreadsheet shared with the service account as `Editor`
+
+Values-only push is available if you want to preserve live formatting:
 
 ```bash
 ./.venv/bin/python scripts/push_schedule_to_google_sheet.py --values-only
 ```
 
-Or use the CLI:
+## Troubleshooting
 
-```bash
-./.venv/bin/python scripts/scheduler_cli.py generate
-./.venv/bin/python scripts/scheduler_cli.py push-sheet
-./.venv/bin/python scripts/scheduler_cli.py generate-and-push
-./.venv/bin/python scripts/scheduler_cli.py push-sheet-values
-./.venv/bin/python scripts/scheduler_cli.py generate-and-push-values
-```
+If validation fails:
 
-The push script writes:
+1. Read the exact file and line mentioned in the error list
+2. Fix only that line first
+3. Run validation again
 
-- the event-matrix schedule section
-- the member workload summary section
-- the bad dates section
+If generation fails after validation passes:
 
-It then applies basic formatting based on `config/google_sheets_styles.yaml`.
+- check whether the ministry rules are impossible to satisfy with the current team and bad dates
+- check whether required Google or Python dependencies are missing
 
-If you use the `values-only` commands, the script updates the table contents but skips all formatting requests so the current Google Sheets styling stays untouched.
-
-## Google Sheets Layout
-
-The draft schedule sheet is not a flat table. It is a column-based event matrix:
-
-- each event occupies one column
-- row 1 is the event name
-- row 2 is the event date
-- row 3 is `N/A` and lists people with bad dates for that event
-- the rows below are role slots like `Director`, `Assist`, `Photographer 1` to `Photographer 5`, `Floor runner`, `SDE 1`, and `SDE 2`
-
-`Sunday Service` can still be generated as a recurring event while leaving the event-name cell blank in Google Sheets.
-
-The Google Sheets renderer also keeps event dates as month-day text like `1 May`, and it assigns one shared color to all event columns within the same month.
-All cells are center-aligned, and event-name cells are wrapped.
-Month colors are chosen from a constrained light swatch palette, and each month block gets its own outline border.
-
-The machine-readable version of that structure lives in `config/google_sheets_layout.yaml`.
-
-The generated CSV now uses a slot-based canonical format that maps cleanly into that sheet layout:
-
-- `event`
-- `date`
-- `director`
-- `assist`
-- `photographer_1` to `photographer_5`
-- `floor_runner`
-- `sde_1`
-- `sde_2`
-
-Optional slots stay blank when an event does not use them.
-
-## Future Improvements
-
-- Automatic Google Sheets upload
-- Constraint solver for optimal schedules
+If you want to change scheduler behavior itself, that is a maintainer task and usually means editing Python, not just the universal file.

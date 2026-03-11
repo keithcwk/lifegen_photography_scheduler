@@ -390,6 +390,12 @@ def sync_styles_from_sheet(service, spreadsheet_id, worksheet_title, styles):
     return changed
 
 
+def slot_names(value):
+    if not value:
+        return set()
+    return {part.strip() for part in str(value).split("+") if part.strip()}
+
+
 def build_summary_values(schedule_rows, members, layout):
     columns = layout["sheet_layout"]["summary_section"]["columns"]
     values = [columns]
@@ -406,15 +412,19 @@ def build_summary_values(schedule_rows, members, layout):
                 direct_assist += 1
             if name == row.get("floor_runner", ""):
                 shoot += 1
-            if name in {
-                row.get("photographer_1", ""),
-                row.get("photographer_2", ""),
-                row.get("photographer_3", ""),
-                row.get("photographer_4", ""),
-                row.get("photographer_5", ""),
-            }:
+            photographer_names = set()
+            for field in (
+                "photographer_1",
+                "photographer_2",
+                "photographer_3",
+                "photographer_4",
+                "photographer_5",
+            ):
+                photographer_names.update(slot_names(row.get(field, "")))
+            if name in photographer_names:
                 shoot += 1
-            if name in {row.get("sde_1", ""), row.get("sde_2", "")}:
+            editor_names = slot_names(row.get("sde_1", "")) | slot_names(row.get("sde_2", ""))
+            if name in editor_names:
                 sde += 1
 
         has_slot = "Yes" if (shoot + sde + direct_assist) > 0 else "No"

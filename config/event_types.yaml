@@ -36,9 +36,9 @@ events:
     tier: high
 
   Leaders Meet:
-    photographers: 2
+    photographers: 1
     director: 1
-    editors: 1
+    editors: 0
     tier: low
 
   Creative Team Meet:

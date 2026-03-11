@@ -7,6 +7,8 @@ from pathlib import Path
 
 import yaml
 
+from universal_scheduler import UniversalSchedulerValidationError, sync_universal_scheduler_if_needed
+
 BASE = Path(__file__).resolve().parents[1]
 TEAM_PATH = BASE / "data/team.yaml"
 EVENTS_PATH = BASE / "data/events.md"
@@ -376,6 +378,8 @@ def build_members(team):
             "direct_rank": int(person.get("direct_rank", 99)),
             "editor_rank": int(person.get("editor_rank", 99)),
             "director_track": False,
+            "leader": bool(person.get("leaders", person.get("leader", True))),
+            "can_guide": bool(person.get("can_guide", True)),
         }
 
     for person in team["yellows"]:
@@ -390,6 +394,8 @@ def build_members(team):
             "direct_rank": int(person.get("direct_rank", 99)),
             "editor_rank": int(person.get("editor_rank", 99)),
             "director_track": bool(person.get("director_track", False)),
+            "leader": bool(person.get("leaders", person.get("leader", False))),
+            "can_guide": bool(person.get("can_guide", name == "Dan C")),
         }
 
     for name in team["reds"]:
@@ -403,6 +409,8 @@ def build_members(team):
             "direct_rank": 999,
             "editor_rank": 999,
             "director_track": False,
+            "leader": False,
+            "can_guide": False,
         }
 
     return members
@@ -587,6 +595,48 @@ def sort_photographers_for_display(photographers, members):
     return sorted(photographers, key=lambda name: photographer_display_rank(name, members))
 
 
+def guide_display_rank(name, members):
+    member = members[name]
+    return (0 if member["role"] == "green" else 1, member["shoot_rank"], name)
+
+
+def format_photographer_slots(photographers, members):
+    ordered_photographers = sort_photographers_for_display(photographers, members)
+    risky_names = [name for name in ordered_photographers if name in RISKY_REDS]
+    if not risky_names:
+        return ordered_photographers
+
+    formatted = []
+    hidden_guides = set()
+
+    for risky_name in risky_names:
+        guide_candidates = [
+            name
+            for name in ordered_photographers
+            if name != risky_name and name not in hidden_guides and is_safety_anchor(name, members)
+        ]
+        if not guide_candidates:
+            continue
+        chosen_guide = min(guide_candidates, key=lambda name: guide_display_rank(name, members))
+        hidden_guides.add(chosen_guide)
+
+    for name in ordered_photographers:
+        if name in hidden_guides:
+            continue
+        if name in RISKY_REDS:
+            paired_guides = [
+                guide_name
+                for guide_name in ordered_photographers
+                if guide_name in hidden_guides and guide_name != name and is_safety_anchor(guide_name, members)
+            ]
+            if paired_guides:
+                formatted.append(f"{name} + {paired_guides[0]}")
+                continue
+        formatted.append(name)
+
+    return formatted
+
+
 def editor_display_rank(name, members):
     member = members[name]
     role_priority = {"green": 0, "yellow": 1, "red": 2}
@@ -604,8 +654,8 @@ def build_output_row(event, director, assist, editors, photographers, fieldnames
     row["director"] = director
     row["assist"] = assist
 
-    ordered_photographers = sort_photographers_for_display(photographers, members)
-    for index, photographer in enumerate(ordered_photographers[:5], start=1):
+    formatted_photographers = format_photographer_slots(photographers, members)
+    for index, photographer in enumerate(formatted_photographers[:5], start=1):
         row[f"photographer_{index}"] = photographer
 
     ordered_editors = sort_editors_for_display(editors, members)
@@ -630,13 +680,15 @@ def init_stats(members):
             "monthly_events": defaultdict(int),
             "role_counts": defaultdict(int),
             "monthly_role_counts": defaultdict(lambda: defaultdict(int)),
+            "monthly_event_role_counts": defaultdict(lambda: defaultdict(lambda: defaultdict(int))),
+            "quarterly_event_role_counts": defaultdict(lambda: defaultdict(lambda: defaultdict(int))),
             "last_assigned": None,
         }
         for name in members
     }
 
 
-def fairness_penalty(stats, name, event_date):
+def fairness_penalty(stats, name, event_date, tier):
     person_stats = stats[name]
     penalty = person_stats["total_events"] * 12
     penalty += person_stats["monthly_events"][month_key(event_date)] * 18
@@ -647,11 +699,11 @@ def fairness_penalty(stats, name, event_date):
     else:
         gap = (event_date.date() - last_assigned).days
         if gap < 7:
-            penalty += 25
+            penalty += 12 if tier == "high" else 30
         elif gap < 14:
-            penalty += 12
+            penalty += 4 if tier == "high" else 20
         elif gap < 21:
-            penalty += 5
+            penalty += 2 if tier == "high" else 5
 
     return penalty
 
@@ -660,12 +712,29 @@ def role_count_penalty(stats, name, role):
     return stats[name]["role_counts"][role] * 6
 
 
+def repeated_event_role_penalty(stats, name, event_name, role, event_date):
+    quarter = quarter_key(event_date.date())
+    repeats = stats[name]["quarterly_event_role_counts"][quarter][event_name][role]
+    if repeats == 0:
+        return 0
+
+    if event_name in {"Creative Team Meet", "Lifegen Prayer"}:
+        return repeats * 45
+    if event_name == "Leaders Meet":
+        return repeats * 30
+    return repeats * 12
+
+
+def monthly_event_role_count(stats, name, event_name, role, event_date):
+    return stats[name]["monthly_event_role_counts"][month_key(event_date)][event_name][role]
+
+
 def monthly_role_count(stats, name, role, event_date):
     return stats[name]["monthly_role_counts"][month_key(event_date)][role]
 
 
 def is_safety_anchor(name, members):
-    return members[name]["role"] == "green" or name == "Dan C"
+    return members[name].get("can_guide", False)
 
 
 def has_safety_anchor(names, members):
@@ -707,16 +776,20 @@ def available_names(members, bad_dates, event_date, used):
     ]
 
 
-def director_score(name, members, stats, event_date, tier):
+def director_score(name, members, stats, event_name, event_date, tier):
     member = members[name]
     if not member["can_direct"]:
+        return None
+
+    if event_name == "Leaders Meet" and not member.get("leader", False):
         return None
 
     if tier == "high" and member["role"] != "green":
         return None
 
-    score = fairness_penalty(stats, name, event_date)
+    score = fairness_penalty(stats, name, event_date, tier)
     score += role_count_penalty(stats, name, "director")
+    score += repeated_event_role_penalty(stats, name, event_name, "director", event_date)
 
     if member["role"] == "green":
         if tier == "high":
@@ -736,25 +809,31 @@ def director_score(name, members, stats, event_date, tier):
     return score
 
 
-def assist_score(name, members, stats, event_date):
+def assist_score(name, members, stats, event_name, event_date, tier="standard"):
     member = members[name]
     if member["role"] != "green":
         return None
+    if event_name == "Leaders Meet" and not member.get("leader", False):
+        return None
 
-    score = fairness_penalty(stats, name, event_date)
+    score = fairness_penalty(stats, name, event_date, tier)
+    score += repeated_event_role_penalty(stats, name, event_name, "assist", event_date)
     score += role_count_penalty(stats, name, "assist")
     score += monthly_role_count(stats, name, "assist", event_date) * 8
     score -= max(0, 14 - (member["direct_rank"] * 2))
     return score
 
 
-def editor_score(name, members, stats, event_date, tier, director_name):
+def editor_score(name, members, stats, event_name, event_date, tier, director_name):
     member = members[name]
     if not member["can_edit"]:
         return None
+    if event_name == "Leaders Meet" and not member.get("leader", False):
+        return None
 
-    score = fairness_penalty(stats, name, event_date)
+    score = fairness_penalty(stats, name, event_date, tier)
     score += role_count_penalty(stats, name, "editor")
+    score += repeated_event_role_penalty(stats, name, event_name, "editor", event_date)
 
     if member["role"] == "yellow":
         rank_weight = {"high": 6, "standard": 3, "low": 1}.get(tier, 3)
@@ -773,13 +852,20 @@ def editor_score(name, members, stats, event_date, tier, director_name):
     return score
 
 
-def photographer_score(name, members, stats, event_date, tier):
+def photographer_score(name, members, stats, event_name, event_date, tier):
     member = members[name]
     if not member["can_shoot"]:
         return None
+    if event_name == "Leaders Meet" and not member.get("leader", False):
+        return None
+    if member["role"] == "red" and stats[name]["monthly_events"][month_key(event_date)] >= 2:
+        return None
 
-    score = fairness_penalty(stats, name, event_date)
+    score = fairness_penalty(stats, name, event_date, tier)
+    if monthly_role_count(stats, name, "photographer", event_date) >= 2:
+        score += 140
     score += role_count_penalty(stats, name, "photographer")
+    score += repeated_event_role_penalty(stats, name, event_name, "photographer", event_date)
 
     if tier == "high":
         if member["role"] == "green":
@@ -789,7 +875,14 @@ def photographer_score(name, members, stats, event_date, tier):
         else:
             score += 40
     elif tier == "low":
-        if member["role"] == "green":
+        if event_name == "Leaders Meet":
+            if member["role"] == "green":
+                score += member["shoot_rank"]
+            elif member["role"] == "yellow":
+                score += member["editor_rank"]
+            else:
+                return None
+        elif member["role"] == "green":
             score += 20
         elif member["role"] == "yellow":
             score += 6 + (member["editor_rank"] // 2)
@@ -803,6 +896,13 @@ def photographer_score(name, members, stats, event_date, tier):
         else:
             score += 16
 
+    if event_name == "Sunday Service":
+        sunday_count = monthly_event_role_count(stats, name, event_name, "photographer", event_date)
+        if sunday_count == 0:
+            score -= 35
+        else:
+            score += sunday_count * 45
+
     return score
 
 
@@ -812,7 +912,7 @@ def pick_director(event, members, stats, bad_dates):
 
     return choose_best_candidate(
         candidates,
-        lambda name: director_score(name, members, stats, event["date"], tier),
+        lambda name: director_score(name, members, stats, event["event"], event["date"], tier),
         f"Could not find an available director for {event['date'].strftime('%Y-%m-%d')} {event['event']}.",
     )
 
@@ -824,7 +924,7 @@ def pick_assist(event, members, stats, bad_dates, director_name, used):
     candidates = available_names(members, bad_dates, event["date"], used)
     return choose_best_candidate(
         candidates,
-        lambda name: assist_score(name, members, stats, event["date"]),
+        lambda name: assist_score(name, members, stats, event["event"], event["date"], event["requirements"]["tier"]),
         (
             f"Could not find a green assist for trainee director "
             f"{director_name} on {event['date'].strftime('%Y-%m-%d')} {event['event']}."
@@ -841,7 +941,7 @@ def pick_editors(event, members, stats, bad_dates, director_name, used):
     editors = []
 
     def candidate_score(name):
-        return editor_score(name, members, stats, event["date"], tier, director_name)
+        return editor_score(name, members, stats, event["event"], event["date"], tier, director_name)
 
     unused_candidates = available_names(members, bad_dates, event["date"], used)
 
@@ -878,10 +978,10 @@ def pick_editors(event, members, stats, bad_dates, director_name, used):
     return editors
 
 
-def choose_required_photographer(candidate_names, members, stats, event_date, tier, label):
+def choose_required_photographer(candidate_names, members, stats, event_name, event_date, tier, label):
     return choose_best_candidate(
         candidate_names,
-        lambda name: photographer_score(name, members, stats, event_date, tier),
+        lambda name: photographer_score(name, members, stats, event_name, event_date, tier),
         f"Could not find {label} for {event_date.strftime('%Y-%m-%d')}.",
     )
 
@@ -927,9 +1027,27 @@ def pick_photographers(event, members, stats, bad_dates, director_name, assist, 
             and members[name]["can_shoot"]
         ]
 
+    def can_add_photographer(name):
+        if name in RISKY_REDS and any(existing in RISKY_REDS for existing in photographers):
+            return False
+
+        current_with_candidate = [*photographers, name]
+        remaining_slots_after_choice = required - len(current_with_candidate)
+        anchor_present = has_safety_anchor(current_with_candidate, members)
+        anchor_available_after_choice = any(
+            is_safety_anchor(candidate_name, members)
+            for candidate_name in available_shooters()
+            if candidate_name != name
+        )
+        if name in RISKY_REDS and not anchor_present:
+            if remaining_slots_after_choice == 0 or not anchor_available_after_choice:
+                return False
+
+        return True
+
     if tier == "high" and required > 0 and minimum_green_photographers == 0:
         green_candidates = [
-            name for name in available_shooters() if members[name]["role"] == "green"
+            name for name in available_shooters() if members[name]["role"] == "green" and can_add_photographer(name)
         ]
         if green_candidates:
             photographers.append(
@@ -937,6 +1055,7 @@ def pick_photographers(event, members, stats, bad_dates, director_name, assist, 
                     green_candidates,
                     members,
                     stats,
+                    event["event"],
                     event["date"],
                     tier,
                     "a green photographer",
@@ -945,12 +1064,13 @@ def pick_photographers(event, members, stats, bad_dates, director_name, assist, 
 
     while minimum_green_photographers > 0 and len(photographers) < required:
         green_candidates = [
-            name for name in available_shooters() if members[name]["role"] == "green"
+            name for name in available_shooters() if members[name]["role"] == "green" and can_add_photographer(name)
         ]
         chosen = choose_required_photographer(
             green_candidates,
             members,
             stats,
+            event["event"],
             event["date"],
             tier,
             "a required green photographer",
@@ -960,12 +1080,13 @@ def pick_photographers(event, members, stats, bad_dates, director_name, assist, 
 
     while minimum_yellow_photographers > 0 and len(photographers) < required:
         yellow_candidates = [
-            name for name in available_shooters() if members[name]["role"] == "yellow"
+            name for name in available_shooters() if members[name]["role"] == "yellow" and can_add_photographer(name)
         ]
         chosen = choose_required_photographer(
             yellow_candidates,
             members,
             stats,
+            event["event"],
             event["date"],
             tier,
             "a required yellow photographer",
@@ -975,12 +1096,13 @@ def pick_photographers(event, members, stats, bad_dates, director_name, assist, 
 
     while minimum_red_photographers > 0 and len(photographers) < required:
         red_candidates = [
-            name for name in available_shooters() if members[name]["role"] == "red"
+            name for name in available_shooters() if members[name]["role"] == "red" and can_add_photographer(name)
         ]
         chosen = choose_required_photographer(
             red_candidates,
             members,
             stats,
+            event["event"],
             event["date"],
             tier,
             "a required red photographer",
@@ -994,7 +1116,7 @@ def pick_photographers(event, members, stats, bad_dates, director_name, assist, 
         and role_counts(photographers, members)["green"] < target_green_photographers
     ):
         green_candidates = [
-            name for name in available_shooters() if members[name]["role"] == "green"
+            name for name in available_shooters() if members[name]["role"] == "green" and can_add_photographer(name)
         ]
         if not green_candidates:
             break
@@ -1004,6 +1126,7 @@ def pick_photographers(event, members, stats, bad_dates, director_name, assist, 
                 green_candidates,
                 members,
                 stats,
+                event["event"],
                 event["date"],
                 tier,
                 "an ideal green photographer for a high tier event",
@@ -1017,7 +1140,7 @@ def pick_photographers(event, members, stats, bad_dates, director_name, assist, 
         and len(photographers) < required
     ):
         anchor_candidates = [
-            name for name in available_shooters() if is_safety_anchor(name, members)
+            name for name in available_shooters() if is_safety_anchor(name, members) and can_add_photographer(name)
         ]
         if anchor_candidates:
             photographers.append(
@@ -1025,6 +1148,7 @@ def pick_photographers(event, members, stats, bad_dates, director_name, assist, 
                     anchor_candidates,
                     members,
                     stats,
+                    event["event"],
                     event["date"],
                     tier,
                     "a support anchor for a trainee director",
@@ -1037,6 +1161,8 @@ def pick_photographers(event, members, stats, bad_dates, director_name, assist, 
 
         def candidate_score(name):
             if members[name]["role"] == "red" and current_reds >= max_red_photographers:
+                return None
+            if name in RISKY_REDS and any(existing in RISKY_REDS for existing in photographers):
                 return None
 
             current_with_candidate = [*photographers, name]
@@ -1051,7 +1177,9 @@ def pick_photographers(event, members, stats, bad_dates, director_name, assist, 
                 if remaining_slots_after_choice == 0 or not anchor_available_after_choice:
                     return None
 
-            score = photographer_score(name, members, stats, event["date"], tier)
+            score = photographer_score(name, members, stats, event["event"], event["date"], tier)
+            if score is None:
+                return None
             if (
                 event_name == "Sunday Service"
                 and members[name]["role"] == "green"
@@ -1064,7 +1192,7 @@ def pick_photographers(event, members, stats, bad_dates, director_name, assist, 
                 score += 40
             return score
 
-        candidate_pool = available_shooters()
+        candidate_pool = [name for name in available_shooters() if can_add_photographer(name)]
         if tier == "high":
             non_red_candidates = [
                 name for name in candidate_pool if members[name]["role"] != "red"
@@ -1080,7 +1208,7 @@ def pick_photographers(event, members, stats, bad_dates, director_name, assist, 
             ]
             if non_green_candidates:
                 candidate_pool = non_green_candidates
-        elif tier == "low":
+        elif tier == "low" and event_name != "Leaders Meet":
             non_green_candidates = [
                 name for name in candidate_pool if members[name]["role"] != "green"
             ]
@@ -1112,6 +1240,18 @@ def validate_team_composition(event, members, director_name, used, assist, photo
     assigned_names = [*used, *photographers]
     counts = role_counts(assigned_names, members)
     photographer_counts = role_counts(photographers, members)
+
+    if event["event"] == "Leaders Meet":
+        non_leaders = sorted({name for name in assigned_names if not members[name].get("leader", False)})
+        if non_leaders:
+            raise SchedulingError(
+                f"Leaders Meet on {event['date'].strftime('%Y-%m-%d')} can only include leaders. Non-leaders: {', '.join(non_leaders)}."
+            )
+
+    if len(RISKY_REDS.intersection(photographers)) > 1:
+        raise SchedulingError(
+            f"{event['event']} on {event['date'].strftime('%Y-%m-%d')} cannot schedule Issac and Aslvin together."
+        )
 
     if members[director_name]["director_track"]:
         if not assist or members[assist]["role"] != "green":
@@ -1156,8 +1296,9 @@ def validate_team_composition(event, members, director_name, used, assist, photo
 
     if RISKY_REDS.intersection(photographers) and not has_safety_anchor(photographers, members):
         raise SchedulingError(
-            f"{event['event']} on {event['date'].strftime('%Y-%m-%d')} must include a green photographer or Dan C when Issac or Aslvin are scheduled."
+            f"{event['event']} on {event['date'].strftime('%Y-%m-%d')} must include a guide-capable photographer when Issac or Aslvin are scheduled."
         )
+
 
 
 def enforce_safety_rule(
@@ -1183,7 +1324,7 @@ def enforce_safety_rule(
     replacement = choose_best_candidate(
         replacement_candidates,
         lambda name: photographer_score(
-            name, members, stats, event["date"], event["requirements"]["tier"]
+            name, members, stats, event["event"], event["date"], event["requirements"]["tier"]
         ),
         (
             f"Could not satisfy the safety rule for {event['date'].strftime('%Y-%m-%d')} "
@@ -1223,9 +1364,11 @@ def build_event_requirements(event_name, event_types):
     }
 
 
-def update_stats(stats, event_date, director, assist, editors, photographers):
-    participants = set([director, *([assist] if assist else []), *editors, *photographers])
+def update_stats(stats, event, director, assist, editors, photographers):
+    event_date = event["date"]
     month = month_key(event_date)
+    quarter = quarter_key(event_date.date())
+    participants = set([director, *([assist] if assist else []), *editors, *photographers])
 
     for name in participants:
         stats[name]["total_events"] += 1
@@ -1234,18 +1377,28 @@ def update_stats(stats, event_date, director, assist, editors, photographers):
 
     stats[director]["role_counts"]["director"] += 1
     stats[director]["monthly_role_counts"][month]["director"] += 1
+    stats[director]["monthly_event_role_counts"][month][event["event"]]["director"] += 1
+    stats[director]["quarterly_event_role_counts"][quarter][event["event"]]["director"] += 1
     if assist:
         stats[assist]["role_counts"]["assist"] += 1
         stats[assist]["monthly_role_counts"][month]["assist"] += 1
+        stats[assist]["monthly_event_role_counts"][month][event["event"]]["assist"] += 1
+        stats[assist]["quarterly_event_role_counts"][quarter][event["event"]]["assist"] += 1
     for name in editors:
         stats[name]["role_counts"]["editor"] += 1
         stats[name]["monthly_role_counts"][month]["editor"] += 1
+        stats[name]["monthly_event_role_counts"][month][event["event"]]["editor"] += 1
+        stats[name]["quarterly_event_role_counts"][quarter][event["event"]]["editor"] += 1
     for name in photographers:
         stats[name]["role_counts"]["photographer"] += 1
         stats[name]["monthly_role_counts"][month]["photographer"] += 1
+        stats[name]["monthly_event_role_counts"][month][event["event"]]["photographer"] += 1
+        stats[name]["quarterly_event_role_counts"][quarter][event["event"]]["photographer"] += 1
 
 
 def generate_schedule():
+    sync_universal_scheduler_if_needed()
+
     team = load_team()
     event_types = load_event_types()
     google_sheets_styles = load_google_sheets_styles()
@@ -1288,7 +1441,7 @@ def generate_schedule():
             name for name, dates in bad_dates.items() if event["date"].date() in dates
         )
 
-        update_stats(stats, event["date"], director, assist, editors, photographers)
+        update_stats(stats, event, director, assist, editors, photographers)
 
         row = build_output_row(event, director, assist, editors, photographers, fieldnames, members)
         row["unavailable"] = ", ".join(unavailable)
@@ -1309,9 +1462,19 @@ def write_csv(rows, fieldnames):
 
 
 def main():
-    rows, fieldnames = generate_schedule()
-    write_csv(rows, fieldnames)
-    write_styles_manifest(load_google_sheets_styles())
+    try:
+        rows, fieldnames = generate_schedule()
+        write_csv(rows, fieldnames)
+        write_styles_manifest(load_google_sheets_styles())
+    except UniversalSchedulerValidationError as exc:
+        print("Universal scheduler needs attention:")
+        print()
+        for issue in exc.issues:
+            print(f"- {issue}")
+        raise SystemExit(1)
+    except (SchedulingError, ValueError) as exc:
+        print(f"Could not generate schedule: {exc}")
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

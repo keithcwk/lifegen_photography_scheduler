@@ -1,0 +1,23 @@
+#!/bin/zsh
+set -u
+cd "$(dirname "$0")/.."
+
+PYTHON="./.venv/bin/python"
+if [ ! -x "$PYTHON" ]; then
+  PYTHON="python3"
+fi
+
+echo "Validating UNIVERSAL_SCHEDULER.md..."
+echo
+"$PYTHON" scripts/compile_universal_scheduler.py --check
+exit_code=$?
+echo
+if [ $exit_code -eq 0 ]; then
+  echo "Validation passed."
+else
+  echo "Validation failed. Review the messages above."
+fi
+
+echo
+read -r "?Press Enter to close..."
+exit $exit_code

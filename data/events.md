@@ -1,4 +1,3 @@
-
 # Events
 
 Add one event per line using `DD Mon YYYY - Event Name`.
@@ -28,6 +27,7 @@ Example
 21 Jun 2026 - Father's Day
 
 ## Exclusions
+
+3 Apr 2026 - Leaders Meet
 29 May 2026 - Creative Team Meet
 31 May 2026 - Sunday Service
-

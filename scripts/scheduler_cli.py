@@ -1,5 +1,4 @@
 import argparse
-import re
 import subprocess
 import sys
 from collections import defaultdict
@@ -10,12 +9,19 @@ from generate_schedule import (
     DATE_FORMAT,
     EVENT_LINE_PATTERN,
     build_members,
-    load_team,
     load_event_types,
+    load_team,
     parse_bad_dates,
     parse_event_file,
-    parse_events,
     quarter_key,
+)
+from universal_scheduler import (
+    UNIVERSAL_SCHEDULER_PATH,
+    UniversalSchedulerValidationError,
+    compile_universal_scheduler,
+    validate_universal_scheduler,
+    write_universal_scheduler,
+    write_universal_scheduler_template,
 )
 
 BASE = Path(__file__).resolve().parents[1]
@@ -70,6 +76,12 @@ Example
 """
 
 
+def print_validation_error(error):
+    print("Universal scheduler needs attention:")
+    for issue in error.issues:
+        print(f"- {issue}")
+
+
 def validate_event_line(event_line):
     match = EVENT_LINE_PATTERN.fullmatch(event_line.strip())
     if not match:
@@ -100,6 +112,8 @@ def write_events(event_lines, exclusions=None):
 
 
 def add_event(event_line):
+    ensure_direct_file_editing_allowed()
+
     normalized = validate_event_line(event_line)
     explicit_events, exclusions = parse_event_file()
     existing = {
@@ -152,6 +166,8 @@ def write_bad_dates(bad_dates):
 
 
 def mark_unavailable(name, date_str):
+    ensure_direct_file_editing_allowed()
+
     blocked_date = datetime.strptime(date_str, DATE_FORMAT).date()
     known_members = build_members(load_team())
     if name not in known_members:
@@ -162,6 +178,13 @@ def mark_unavailable(name, date_str):
     write_bad_dates(bad_dates)
 
     print(f"{name} marked unavailable on {date_str}")
+
+
+def ensure_direct_file_editing_allowed():
+    if UNIVERSAL_SCHEDULER_PATH.exists():
+        raise RuntimeError(
+            "UNIVERSAL_SCHEDULER.md is present. Edit that file and run compile-universal instead of mutating generated files directly."
+        )
 
 
 def scheduler_python():
@@ -189,6 +212,36 @@ def push_schedule(generate_first=True, values_only=False):
         print("Schedule pushed to Google Sheets.")
 
 
+def compile_universal():
+    try:
+        written_paths = compile_universal_scheduler()
+    except UniversalSchedulerValidationError as exc:
+        print_validation_error(exc)
+        raise SystemExit(1)
+    print("Compiled universal scheduler into:")
+    for path in written_paths:
+        print(path)
+
+
+def check_universal():
+    try:
+        validate_universal_scheduler()
+    except UniversalSchedulerValidationError as exc:
+        print_validation_error(exc)
+        raise SystemExit(1)
+    print("Universal scheduler looks valid.")
+
+
+def export_universal():
+    path = write_universal_scheduler()
+    print(f"Universal scheduler exported to {path}")
+
+
+def write_template():
+    path = write_universal_scheduler_template()
+    print(f"Template written to {path}")
+
+
 def suggest_replacement(name, date):
     print(f"Suggesting replacement for {name} on {date}")
     print("Not implemented yet. Next step: read output/schedule.csv and score backups.")
@@ -210,6 +263,10 @@ def main():
     replace_cmd.add_argument("date")
 
     sub.add_parser("generate")
+    sub.add_parser("compile-universal")
+    sub.add_parser("check-universal")
+    sub.add_parser("export-universal")
+    sub.add_parser("write-template")
     sub.add_parser("push-sheet")
     sub.add_parser("generate-and-push")
     sub.add_parser("push-sheet-values")
@@ -227,6 +284,14 @@ def main():
         suggest_replacement(args.name, args.date)
     elif args.command == "generate":
         run_scheduler()
+    elif args.command == "compile-universal":
+        compile_universal()
+    elif args.command == "check-universal":
+        check_universal()
+    elif args.command == "export-universal":
+        export_universal()
+    elif args.command == "write-template":
+        write_template()
     elif args.command == "push-sheet":
         push_schedule(generate_first=False)
     elif args.command == "generate-and-push":

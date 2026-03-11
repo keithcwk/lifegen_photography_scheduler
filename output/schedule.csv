@@ -1,36 +1,35 @@
 event,date,director,assist,photographer_1,photographer_2,photographer_3,photographer_4,photographer_5,floor_runner,sde_1,sde_2
 Good Friday,2026-04-03,Nic,,Dennis,Gavin,Huey Chyi,Joseph,,,Keith,Charites
-Leaders Meet,2026-04-03,Dan C,Nic,Alvin,Josiah,,,,,Jia En,
-Easter,2026-04-05,Keith,,Dennis,Gavin,Wing Yan,Janelle,,,Cindy,Patrick
-Sunday Service,2026-04-05,Huey Chyi,,Joseph,Charites,Aslvin,Issac,,,Dan C,Ashley
-Lifegen Prayer,2026-04-07,Charites,Keith,Alvin,Josiah,,,,,Wing Yan,
-Sunday Service,2026-04-12,Dennis,,Nic,Patrick,Ashley,Aslvin,,,Jia En,Cindy
-Sunday Service,2026-04-19,Gavin,,Huey Chyi,Jia En,Cindy,Issac,,,Dan C,Janelle
-Creative Team Meet,2026-04-24,Joseph,,Alvin,Josiah,,,,,Wing Yan,
-Sunday Service,2026-04-26,Dennis,,Keith,Janelle,Aslvin,Issac,,,Patrick,Ashley
-Leaders Meet,2026-05-01,Charites,Nic,Jia En,Alvin,,,,,Dan C,
-Sunday Service,2026-05-03,Gavin,,Joseph,Patrick,Wing Yan,Aslvin,,,Cindy,Huey Chyi
-Lifegen Prayer,2026-05-05,Keith,,Ashley,Josiah,,,,,Janelle,
-Mother's Day,2026-05-10,Dennis,,Gavin,Huey Chyi,Joseph,Dan C,,,Charites,Nic
-Sunday Service,2026-05-10,Keith,,Dennis,Cindy,Wing Yan,Issac,,,Jia En,Patrick
-Sunday Service,2026-05-17,Huey Chyi,,Nic,Charites,Alvin,Aslvin,,,Janelle,Ashley
-Sunday Service,2026-05-24,Joseph,,Keith,Jia En,Issac,Josiah,,,Dan C,Gavin
-Lifegen Camp,2026-05-29,Dennis,,Nic,Huey Chyi,Wing Yan,Janelle,,,Cindy,Patrick
-Lifegen Camp,2026-05-30,Gavin,,Keith,Dennis,Dan C,Ashley,,,Charites,Joseph
-Lifegen Camp,2026-05-31,Nic,,Gavin,Huey Chyi,Patrick,Janelle,,,Jia En,Cindy
-Lifegen Camp,2026-06-01,Joseph,,Nic,Keith,Dan C,Ashley,,,Charites,Dennis
-Lifegen Prayer,2026-06-02,Dan C,Gavin,Alvin,Josiah,,,,,Wing Yan,
-Leaders Meet,2026-06-05,Charites,Huey Chyi,Jia En,Cindy,,,,,Janelle,
-Sunday Service,2026-06-07,Joseph,,Dennis,Ashley,Aslvin,Issac,,,Patrick,Wing Yan
-Sunday Service,2026-06-14,Huey Chyi,,Gavin,Cindy,Patrick,Alvin,,,Keith,Jia En
-Father's Day,2026-06-21,Nic,,Keith,Dennis,Wing Yan,Janelle,,,Charites,Joseph
-Sunday Service,2026-06-21,Gavin,,Huey Chyi,Jia En,Aslvin,Issac,,,Dan C,Ashley
-Creative Team Meet,2026-06-26,Nic,,Alvin,Josiah,,,,,Cindy,
-Sunday Service,2026-06-28,Joseph,,Gavin,Charites,Aslvin,Issac,,,Patrick,Janelle
-Leaders Meet,2026-07-03,Dan C,Dennis,Alvin,Josiah,,,,,Wing Yan,
-Sunday Service,2026-07-05,Huey Chyi,,Joseph,Jia En,Cindy,Aslvin,,,Keith,Ashley
-Lifegen Prayer,2026-07-07,Charites,Nic,Patrick,Josiah,,,,,Janelle,
-Sunday Service,2026-07-12,Gavin,,Joseph,Cindy,Ashley,Issac,,,Dan C,Wing Yan
-Sunday Service,2026-07-19,Keith,,Nic,Charites,Patrick,Alvin,,,Dennis,Jia En
-Sunday Service,2026-07-26,Huey Chyi,,Joseph,Dan C,Aslvin,Issac,,,Gavin,Janelle
-Creative Team Meet,2026-07-31,Dennis,,Wing Yan,Josiah,,,,,Ashley,
+Easter,2026-04-05,Keith,,Nic,Dennis,Cindy,Patrick,,,Dan C,Jia En
+Sunday Service,2026-04-05,Gavin,,Huey Chyi,Felise,Ashley,Alvin,,,Wing Yan,Janelle
+Lifegen Prayer,2026-04-07,Charites,Joseph,Alvin,Josiah,,,,,Cindy,
+Sunday Service,2026-04-12,Dennis,,Wing Yan,Janelle,Aslvin + Keith,,,,Dan C,Jia En
+Sunday Service,2026-04-19,Huey Chyi,,Charites,Issac + Gavin,Josiah,,,,Patrick,Felise
+Creative Team Meet,2026-04-24,Dan C,Nic,Jia En,Cindy,,,,,Ashley,
+Sunday Service,2026-04-26,Joseph,,Dan C,Patrick,Aslvin + Nic,,,,Wing Yan,Janelle
+Leaders Meet,2026-05-01,Dennis,,Keith,,,,,,,
+Sunday Service,2026-05-03,Gavin,,Felise,Alvin,Issac + Joseph,,,,Charites,Huey Chyi
+Lifegen Prayer,2026-05-05,Dan C,Nic,Jia En,Janelle,,,,,Ashley,
+Mother's Day,2026-05-10,Keith,,Dennis,Gavin,Huey Chyi,Wing Yan,,,Cindy,Patrick
+Sunday Service,2026-05-10,Joseph,,Ashley,Aslvin + Nic,Josiah,,,,Charites,Felise
+Sunday Service,2026-05-17,Keith,,Patrick,Wing Yan,Issac + Dennis,,,,Jia En,Cindy
+Sunday Service,2026-05-24,Huey Chyi,,Keith,Charites,Janelle,Alvin,,,Dan C,Gavin
+Lifegen Camp,2026-05-29,Nic,,Gavin,Huey Chyi,Felise,Ashley,,,Jia En,Joseph
+Lifegen Camp,2026-05-30,Dennis,,Nic,Joseph,Charites,Dan C,,,Cindy,Patrick
+Lifegen Camp,2026-05-31,Keith,,Dennis,Joseph,Jia En,Cindy,,,Wing Yan,Janelle
+Lifegen Camp,2026-06-01,Gavin,,Keith,Dennis,Patrick,Wing Yan,,,Nic,Huey Chyi
+Lifegen Prayer,2026-06-02,Charites,Gavin,Ashley,Josiah,,,,,Felise,
+Leaders Meet,2026-06-05,Joseph,,Huey Chyi,,,,,,,
+Sunday Service,2026-06-07,Dan C,Keith,Jia En,Alvin,Aslvin + Joseph,,,,Cindy,Janelle
+Sunday Service,2026-06-14,Nic,,Cindy,Issac + Gavin,Josiah,,,,Dennis,Ashley
+Father's Day,2026-06-21,Huey Chyi,,Nic,Keith,Janelle,Felise,,,Charites,Dan C
+Sunday Service,2026-06-21,Joseph,,Dan C,Ashley,Aslvin + Dennis,,,,Patrick,Wing Yan
+Creative Team Meet,2026-06-26,Gavin,,Felise,Alvin,,,,,Jia En,
+Sunday Service,2026-06-28,Dennis,,Patrick,Wing Yan,Issac + Huey Chyi,,,,Charites,Cindy
+Leaders Meet,2026-07-03,Nic,,Keith,,,,,,,
+Sunday Service,2026-07-05,Joseph,,Dan C,Aslvin + Gavin,Josiah,,,,Janelle,Ashley
+Lifegen Prayer,2026-07-07,Charites,Huey Chyi,Alvin,Josiah,,,,,Felise,
+Sunday Service,2026-07-12,Dennis,,Cindy,Wing Yan,Issac + Joseph,,,,Jia En,Patrick
+Sunday Service,2026-07-19,Gavin,,Nic,Janelle,Ashley,Alvin,,,Keith,Dan C
+Sunday Service,2026-07-26,Huey Chyi,,Charites,Jia En,Aslvin + Dennis,,,,Wing Yan,Felise
+Creative Team Meet,2026-07-31,Dan C,Joseph,Cindy,Janelle,,,,,Patrick,

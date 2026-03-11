@@ -6,6 +6,13 @@ This repository is a church photography scheduling system.
 
 Codex should treat descriptive user updates as actionable instructions that modify the project and keep the schedule valid under all defined constraints.
 
+When `UNIVERSAL_SCHEDULER.md` exists, prefer editing that file as the source of truth and compiling it back into the repo instead of editing the generated `data/`, `config/`, and `rules/` files directly.
+
+Managed files such as `rules/rulebook.md`, `data/team.yaml`, `data/events.md`, `data/bad_dates.md`, and the scheduler config files are automatically synced with their matching sections inside `UNIVERSAL_SCHEDULER.md`; the more recently edited copy wins.
+
+`UNIVERSAL_SCHEDULER.template.md` is the reusable starter for new ministries.
+For non-dev usage, prefer the universal file plus the one-click `.command` launchers instead of direct file-by-file edits.
+
 The system supports:
 
 - Event scheduling
@@ -249,6 +256,9 @@ Examples of constraints:
 # How To Map User Updates To Files
 
 Use these defaults unless the user says otherwise:
+
+Universal scheduler source of truth:
+`UNIVERSAL_SCHEDULER.md`
 
 Event date additions, removals, or renames:
 `data/events.md`

@@ -35,7 +35,8 @@ Lower rank numbers mean stronger priority for that role.
 5. Patrick
 6. Wing Yan
 7. Janelle
-8. Ashley
+8. Felise
+9. Ashley
 
 Director Development Track:
 
@@ -73,6 +74,13 @@ This accompaniment must be visible within the photographer lineup, not only in d
 - Sunday Service must include at least 1 green, 1 yellow, and 1 red
 - Sunday Service should ideally avoid having 2 green photographer slots
 - No service may have more than 2 reds
+- Leaders Meet should only schedule members marked as leaders in `data/team.yaml`
+- Leaders Meet only needs 1 photographer
+- Creative Team Meet and Lifegen Prayer should be balanced across the quarter so the same person is not repeated in the same role too often
+- Each photographer should ideally be able to serve 1 Sunday per month; low tier events are additional opportunities and should not replace a Sunday slot
+- Photographers should ideally not be assigned more than 2 times in the same month, regardless of event tier
+- Red members should not be scheduled more than 2 times in the same month
+- Avoid serving consecutive weeks if possible; high tier events can be an exception when stronger coverage is needed
 
 ## Event Risk Levels
 
