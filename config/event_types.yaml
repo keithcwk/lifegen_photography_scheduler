@@ -2,53 +2,97 @@ events:
   Sunday Service:
     photographers: 4
     director: 1
+    assist: 0
     editors: 2
+    floor_runner: 0
+    shadow: 0
     tier: standard
+    min_green_photographers: 1
+    min_yellow_photographers: 1
+    min_red_photographers: 1
+    max_red_photographers: 2
 
   Mother's Day:
     photographers: 4
     director: 1
+    assist: 0
     editors: 2
+    floor_runner: 0
+    shadow: 0
     tier: high
+    min_green_photographers: 2
+    max_red_photographers: 0
 
   Father's Day:
     photographers: 4
     director: 1
+    assist: 0
     editors: 2
+    floor_runner: 0
+    shadow: 0
     tier: high
+    min_green_photographers: 2
+    max_red_photographers: 0
 
   Easter:
     photographers: 4
     director: 1
+    assist: 0
     editors: 2
+    floor_runner: 0
+    shadow: 0
     tier: high
+    min_green_photographers: 2
+    max_red_photographers: 0
 
   Good Friday:
     photographers: 4
     director: 1
+    assist: 0
     editors: 2
+    floor_runner: 0
+    shadow: 0
     tier: high
+    min_green_photographers: 2
+    max_red_photographers: 0
 
   Lifegen Camp:
     photographers: 4
     director: 1
+    assist: 0
     editors: 2
+    floor_runner: 0
+    shadow: 0
     tier: high
+    min_green_photographers: 2
+    max_red_photographers: 0
 
   Leaders Meet:
     photographers: 1
     director: 1
+    assist: 0
     editors: 0
+    floor_runner: 0
+    shadow: 0
     tier: low
+    leaders_only: true
 
   Creative Team Meet:
-    photographers: 2
+    photographers: 3
     director: 1
-    editors: 1
+    assist: 0
+    editors: 2
+    floor_runner: 0
+    shadow: 0
     tier: low
+    min_yellow_photographers: 1
+    max_red_photographers: 2
 
   Lifegen Prayer:
     photographers: 2
     director: 1
+    assist: 0
     editors: 1
+    floor_runner: 0
+    shadow: 0
     tier: low

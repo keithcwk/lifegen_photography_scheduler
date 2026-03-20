@@ -3,36 +3,42 @@ greens:
     shoot_rank: 1
     direct_rank: 1
     editor_rank: 2
+    guide: true
     leader: true
 
   - name: Keith
     shoot_rank: 2
     direct_rank: 2
     editor_rank: 1
+    guide: true
     leader: true
 
   - name: Dennis
     shoot_rank: 3
     direct_rank: 3
     editor_rank: 3
+    guide: true
     leader: true
 
   - name: Gavin
     shoot_rank: 4
     direct_rank: 4
     editor_rank: 4
+    guide: true
     leader: true
 
   - name: Huey Chyi
     shoot_rank: 5
     direct_rank: 5
     editor_rank: 5
+    guide: true
     leader: true
 
   - name: Joseph
     shoot_rank: 8
     direct_rank: 6
     editor_rank: 6
+    guide: true
     leader: true
 
 yellows:
@@ -40,39 +46,64 @@ yellows:
     shoot_rank: 6
     editor_rank: 1
     director_track: true
+    guide: false
+    leader: false
 
   - name: Dan C
     shoot_rank: 7
     editor_rank: 2
     director_track: true
+    guide: true
+    leader: false
 
   - name: Jia En
     shoot_rank: 8
     editor_rank: 3
+    director_track: false
+    guide: false
+    leader: false
 
   - name: Cindy
     shoot_rank: 9
     editor_rank: 4
-
-  - name: Patrick
-    shoot_rank: 11
-    editor_rank: 5
+    director_track: false
+    guide: false
+    leader: false
 
   - name: Wing Yan
     shoot_rank: 10
     editor_rank: 6
+    director_track: false
+    guide: false
+    leader: false
+
+  - name: Patrick
+    shoot_rank: 11
+    editor_rank: 5
+    director_track: false
+    guide: false
+    leader: false
 
   - name: Janelle
     shoot_rank: 12
     editor_rank: 7
+    director_track: false
+    guide: false
+    leader: false
 
   - name: Felise
     shoot_rank: 13
     editor_rank: 8
+    director_track: false
+    guide: false
+    leader: false
 
   - name: Ashley
     shoot_rank: 14
     editor_rank: 9
+    director_track: false
+    guide: false
+    leader: false
 
 reds:
   - name: Alvin
@@ -80,9 +111,12 @@ reds:
 
   - name: Josiah
     shoot_rank: 16
+    weekday_late: true
 
-  - name: Issac
+  - name: Isaac
     shoot_rank: 17
 
   - name: Aslvin
     shoot_rank: 18
+
+shadows: []

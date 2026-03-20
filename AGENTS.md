@@ -437,3 +437,133 @@ In the final response summarize:
 - Suggested roster or replacements
 - Verification performed
 - Any blockers encountered
+
+---
+
+## 1. Dead Code Removal
+
+- Scan every file. Identify all unused imports, unreferenced functions, duplicate components, and orphaned files that are never imported anywhere.
+- Output a list of every file and function to delete.
+
+---
+
+## 2. Folder Restructure
+
+- Propose a new folder structure organized by feature, not by file type.
+- Each feature gets its own folder containing its components, hooks, utils, and types.
+- Show a before/after directory tree.
+
+---
+
+## 3. Hardcoded Value Extraction
+
+- Find every hardcoded string, color hex, API URL, API key, timeout value, and magic number.
+- Move all of them into a single `config.ts` file with named exports grouped by category.
+
+---
+
+## 4. Naming Standardization
+
+- Audit all variable names, function names, and file names.
+- Flag anything that is vague (`temp`, `data`, `handler`, `stuff`, `thing`, `utils2`).
+- Suggest specific descriptive replacements.
+
+---
+
+## 5. Scalability Risks
+
+- List the top 5 things that will break first when this app reaches 10,000 daily active users.
+- For each risk, explain the failure mode and provide a specific fix with code examples.
+
+---
+
+## 6. Worst File Rewrite
+
+- Identify the single messiest file in the entire project.
+- Rewrite it completely with:
+  - Clean naming
+  - Proper error handling
+  - Inline comments explaining every decision
+  - TypeScript types if applicable
+
+---
+
+## 7. Documentation
+
+- Write a `README.md` that covers:
+  - What this app does
+  - How to run it locally
+  - The folder structure
+  - The environment variables needed
+
+---
+
+### 8. Plan Node Default
+
+- Enter plan mode for ANY non-trivial task (3+ steps or architectural decisions)
+- If something goes sideways, STOP and re-plan immediately - don't keep pushing
+- Use plan mode for verification steps, not just building
+- Write detailed specs upfront to reduce ambiguity
+
+---
+
+### 9. Subagent Strategy
+
+- Use subagents liberally to keep main context window clean
+- Offload research, exploration, and parallel analysis to subagents
+- For complex problems, throw more compute at it via subagents
+- One task per subagent for focused execution
+
+---
+
+### 10. Self-Improvement Loop
+
+- After ANY correction from the user: update `tasks/lessons.md` with the pattern
+- Write rules for yourself that prevent the same mistake
+- Ruthlessly iterate on these lessons until mistake rate drops
+- Review lessons at session start for relevant project
+
+---
+
+### 11. Verification Before Done
+
+- Never mark a task complete without proving it works
+- Diff behavior between main and your changes when relevant
+- Ask yourself: "Would a staff engineer approve this?"
+- Run tests, check logs, demonstrate correctness
+
+---
+
+### 12. Demand Elegance (Balanced)
+
+- For non-trivial changes: pause and ask "is there a more elegant way?"
+- If a fix feels hacky: "Knowing everything I know now, implement the elegant solution"
+- Skip this for simple, obvious fixes - don't over-engineer
+- Challenge your own work before presenting it
+
+---
+
+### 13. Autonomous Bug Fixing
+
+- When given a bug report: just fix it. Don't ask for hand-holding
+- Point at logs, errors, failing tests - then resolve them
+- Zero context switching required from the user
+- Go fix failing CI tests without being told how
+
+---
+
+## Task Management
+
+1. **Plan First**: Write plan to `tasks/todo.md` with checkable items
+2. **Verify Plan**: Check in before starting implementation
+3. **Track Progress**: Mark items complete as you go
+4. **Explain Changes**: High-level summary at each step
+5. **Document Results**: Add review section to `tasks/todo.md`
+6. **Capture Lessons**: Update `tasks/lessons.md` after corrections
+
+---
+
+## Core Principles
+
+- **Simplicity First**: Make every change as simple as possible. Impact minimal code
+- **No Laziness**: Find root causes. No temporary fixes. Senior developer standards

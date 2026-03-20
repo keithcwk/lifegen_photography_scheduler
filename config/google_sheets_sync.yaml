@@ -1,4 +1,3 @@
-# Share the target spreadsheet with your service account email as an editor.
 google_sheets:
   spreadsheet_id: "1vEDY8SNbTKOyvSPSxq8xqzSrNZvld3nBD8SvQu3x2Gw"
   worksheet_title: "GPT Schedule Q2 Test"

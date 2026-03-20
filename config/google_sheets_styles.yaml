@@ -4,23 +4,28 @@ sheet:
   font_family: Montserrat
   horizontal_alignment: CENTER
   vertical_alignment: MIDDLE
+
 pivot_column:
   font_weight: bold
   background_color: "#D9EAF4"
   text_color: "#1F1F1F"
+
 event_name:
   font_weight: bold
   background_color: "#F4F7FB"
   text_color: "#1F1F1F"
   wrap_strategy: WRAP
+
 date_column:
   font_weight: bold
   background_color: "#FAFAFA"
   text_color: "#333333"
+
 availability_row:
   font_weight: normal
   background_color: "#FFF8E1"
   text_color: "#6B5600"
+
 month_palette:
   colors:
     - "#F4CCCC"
@@ -31,22 +36,27 @@ month_palette:
     - "#CFE2F3"
     - "#D9D2E9"
     - "#EAD1DC"
+
 month_group_border:
   enabled: true
   color: "#6B7280"
   style: SOLID_MEDIUM
+
 column_separator:
   enabled: true
   color: "#9AA0A6"
   style: SOLID
+
 header_divider:
   enabled: true
   color: "#000000"
   style: SOLID
+
 alternating_rows:
   enabled: true
   odd_row_background: "#FFFFFF"
   even_row_background: "#F8FAFC"
+
 borders:
   enabled: true
   color: "#D0D7DE"

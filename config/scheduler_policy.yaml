@@ -1,0 +1,53 @@
+limits:
+  max_assignments_per_member_per_month: 3
+  max_director_track_directs_per_month: 1
+  max_red_assignments_per_month: 2
+  max_high_tier_yellow_shoot_rank: 8
+  max_high_tier_yellow_editor_rank: 4
+  high_tier_reserve_window_days: 14
+  high_tier_recent_window_days: 10
+  max_same_high_tier_event_assignments: 3
+  creative_team_meet_max_yellow_editor_rank: 4
+  creative_team_meet_anchor_yellow_shoot_rank: 10
+  creative_team_meet_editor_soft_cap_per_quarter: 2
+
+penalties:
+  consecutive_event_penalty: 30
+  repeated_high_tier_event_penalty: 140
+  recent_high_tier_window_penalty: 120
+  repeated_event_editor_pair_penalty: 110
+  repeated_low_tier_event_penalty: 55
+  repeated_weekday_low_tier_penalty: 35
+  creative_team_meet_editor_repeat_penalty: 65
+  creative_team_meet_editor_overuse_penalty: 140
+  weekday_late_low_tier_penalty: 80
+  multi_day_high_tier_early_day_strength_reserve: 10
+  upcoming_high_tier_reserve_penalty: 35
+  upcoming_high_tier_preload_penalty: 90
+  upcoming_high_tier_preload_same_role_penalty: 50
+
+weights:
+  priority_rank: 10
+  role_serve_count: 8
+  total_serve_count: 3
+
+bonuses:
+  first_monthly_photographer_assignment: 24
+  yellow_photo_coverage_bonus: 32
+  green_editor_rotation_bonus: 24
+  creative_team_meet_green_editor_rotation_bonus: 18
+  creative_team_meet_lower_yellow_editor_rotation_bonus: 22
+  weekend_service_for_weekday_late_member: 18
+  multi_day_high_tier_final_day_strength_boost: 18
+  creative_team_meet_anchor_bonus: 20
+
+fallbacks:
+  blank_rank_value: 50
+
+safety:
+  required_guides_for:
+    - Isaac
+    - Aslvin
+
+special_rules:
+  use_scoring_only_after_hard_constraints: true

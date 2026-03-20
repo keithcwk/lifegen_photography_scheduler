@@ -90,11 +90,13 @@ That gives other teams the same engine, while only changing one human-edited fil
 Useful optional fields inside `data/team.yaml` or the team section of `UNIVERSAL_SCHEDULER.md`:
 
 - `leaders: true` marks members who may serve at `Leaders Meet`
-- `can_guide: true` marks members who may guide `Issac` or `Aslvin`
+- `guide: true` marks members who may guide `Isaac` or `Aslvin`
+- `weekday_late: true` tells the scheduler to avoid weekday low-tier events for that member when workable and prefer occasional Sunday usage instead
 - greens still use `shoot_rank`, `direct_rank`, and `editor_rank`
 - yellows still use `editor_rank`, and may also use `director_track: true`
+- `shadows: []` can hold observer-only members with no active assignment slots
 
-Guided photographer slots are displayed as `Name + Guide`, for example `Issac + Dan C`.
+Guided photographer slots are displayed as `Name + Guide`, for example `Isaac + Dan C`.
 
 ## Files Generated From The Universal File
 
@@ -111,6 +113,7 @@ When `UNIVERSAL_SCHEDULER.md` is newer than the generated repo files, schedule g
 - `config/google_sheets_styles.yaml`
 - `config/google_sheets_layout.yaml`
 - `config/google_sheets_sync.yaml`
+- `config/scheduler_policy.yaml`
 
 ## Google Sheets
 

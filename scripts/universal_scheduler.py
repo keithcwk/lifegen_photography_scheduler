@@ -19,6 +19,7 @@ SECTION_SPECS = [
     ("config/google_sheets_styles.yaml", "yaml"),
     ("config/google_sheets_layout.yaml", "yaml"),
     ("config/google_sheets_sync.yaml", "yaml"),
+    ("config/scheduler_policy.yaml", "yaml"),
 ]
 SECTION_TARGETS = {path for path, _ in SECTION_SPECS}
 DATE_FORMAT = "%d %b %Y"
@@ -105,15 +106,21 @@ TEMPLATE_SECTION_CONTENTS = {
 
         yellows:
           - name: Example Yellow 1
+            shoot_rank: 3
             editor_rank: 1
             director_track: true
 
           - name: Example Yellow 2
+            shoot_rank: 4
             editor_rank: 2
 
         reds:
-          - Example Red 1
-          - Example Red 2
+          - name: Example Red 1
+            shoot_rank: 5
+          - name: Example Red 2
+            shoot_rank: 6
+
+        shadows: []
         """
     ),
     "data/events.md": textwrap.dedent(
@@ -270,6 +277,7 @@ TEMPLATE_SECTION_CONTENTS = {
               - floor_runner
               - sde_1
               - sde_2
+              - shadow
         """
     ),
     "config/google_sheets_sync.yaml": textwrap.dedent(
@@ -281,6 +289,48 @@ TEMPLATE_SECTION_CONTENTS = {
           service_account_json: "/absolute/path/to/google_credentials.json"
           clear_before_write: false
           create_worksheet_if_missing: true
+        """
+    ),
+    "config/scheduler_policy.yaml": textwrap.dedent(
+        """\
+        limits:
+          max_assignments_per_member_per_month: 2
+          max_director_track_directs_per_month: 1
+          max_red_assignments_per_month: 2
+          max_high_tier_yellow_shoot_rank: 8
+          max_high_tier_yellow_editor_rank: 4
+          high_tier_reserve_window_days: 14
+
+        penalties:
+          consecutive_event_penalty: 30
+          repeated_weekday_low_tier_penalty: 35
+          weekday_late_low_tier_penalty: 80
+          multi_day_high_tier_early_day_strength_reserve: 10
+          upcoming_high_tier_reserve_penalty: 18
+          upcoming_high_tier_preload_penalty: 55
+          upcoming_high_tier_preload_same_role_penalty: 30
+
+        bonuses:
+          first_monthly_photographer_assignment: 24
+          yellow_photo_coverage_bonus: 32
+          green_editor_rotation_bonus: 24
+          weekend_service_for_weekday_late_member: 18
+          multi_day_high_tier_final_day_strength_boost: 18
+
+        weights:
+          priority_rank: 10
+          role_serve_count: 8
+          total_serve_count: 3
+
+        fallbacks:
+          blank_rank_value: 50
+
+        safety:
+          required_guides_for:
+            - Example Red 1
+
+        special_rules:
+          use_scoring_only_after_hard_constraints: true
         """
     ),
 }
@@ -582,16 +632,20 @@ def validate_universal_scheduler_sections(sections):
     sync_data = _load_yaml_section(
         "config/google_sheets_sync.yaml", sections["config/google_sheets_sync.yaml"], issues
     )
+    scheduler_policy_data = _load_yaml_section(
+        "config/scheduler_policy.yaml", sections["config/scheduler_policy.yaml"], issues
+    )
 
     member_names = set()
     if isinstance(team_data, dict):
-        for key in ("greens", "yellows", "reds"):
+        for key in ("greens", "yellows", "reds", "shadows"):
             if key not in team_data:
                 issues.append(f"data/team.yaml: missing top-level key '{key}'.")
 
         greens = team_data.get("greens", [])
         yellows = team_data.get("yellows", [])
         reds = team_data.get("reds", [])
+        shadows = team_data.get("shadows", [])
 
         if not isinstance(greens, list):
             issues.append("data/team.yaml: 'greens' must be a list.")
@@ -610,6 +664,9 @@ def validate_universal_scheduler_sections(sections):
                 _check_positive_int(person.get("shoot_rank"), "data/team.yaml", "shoot_rank", issues, name)
                 _check_positive_int(person.get("direct_rank"), "data/team.yaml", "direct_rank", issues, name)
                 _check_positive_int(person.get("editor_rank"), "data/team.yaml", "editor_rank", issues, name)
+                for bool_field in ("guide", "leader", "leaders", "can_guide"):
+                    if bool_field in person and not isinstance(person.get(bool_field), bool):
+                        issues.append(f"data/team.yaml: '{bool_field}' must be true or false for '{name}'.")
 
         if not isinstance(yellows, list):
             issues.append("data/team.yaml: 'yellows' must be a list.")
@@ -632,6 +689,9 @@ def validate_universal_scheduler_sections(sections):
                     _check_positive_int(person.get("direct_rank"), "data/team.yaml", "direct_rank", issues, name)
                 if "director_track" in person and not isinstance(person.get("director_track"), bool):
                     issues.append(f"data/team.yaml: 'director_track' must be true or false for '{name}'.")
+                for bool_field in ("guide", "leader", "leaders", "can_guide"):
+                    if bool_field in person and not isinstance(person.get(bool_field), bool):
+                        issues.append(f"data/team.yaml: '{bool_field}' must be true or false for '{name}'.")
 
         if not isinstance(reds, list):
             issues.append("data/team.yaml: 'reds' must be a list.")
@@ -655,6 +715,22 @@ def validate_universal_scheduler_sections(sections):
                 else:
                     issues.append(
                         f"data/team.yaml: reds entry #{index} must be a member name string or a map with 'name'."
+                    )
+                    continue
+                if normalized_name in member_names:
+                    issues.append(f"data/team.yaml: duplicate member name '{normalized_name}'.")
+                member_names.add(normalized_name)
+        if not isinstance(shadows, list):
+            issues.append("data/team.yaml: 'shadows' must be a list.")
+        else:
+            for index, person in enumerate(shadows, start=1):
+                if isinstance(person, dict):
+                    normalized_name = str(person.get("name", "")).strip()
+                else:
+                    normalized_name = str(person).strip()
+                if not normalized_name:
+                    issues.append(
+                        f"data/team.yaml: shadows entry #{index} must be a member name string or a map with 'name'."
                     )
                     continue
                 if normalized_name in member_names:
@@ -685,6 +761,26 @@ def validate_universal_scheduler_sections(sections):
                         issues.append(
                             f"config/event_types.yaml: '{field}' must be an integer >= {minimum} for '{event_name}'."
                         )
+                for optional_int_field in (
+                    "assist",
+                    "floor_runner",
+                    "shadow",
+                    "min_green_photographers",
+                    "min_yellow_photographers",
+                    "min_red_photographers",
+                    "max_red_photographers",
+                ):
+                    if optional_int_field in spec and (
+                        not isinstance(spec.get(optional_int_field), int)
+                        or spec.get(optional_int_field) < 0
+                    ):
+                        issues.append(
+                            f"config/event_types.yaml: '{optional_int_field}' must be an integer >= 0 for '{event_name}'."
+                        )
+                if "leaders_only" in spec and not isinstance(spec.get("leaders_only"), bool):
+                    issues.append(
+                        f"config/event_types.yaml: 'leaders_only' must be true or false for '{event_name}'."
+                    )
                 tier = str(spec.get("tier", "")).strip().lower()
                 if tier not in {"low", "standard", "high"}:
                     issues.append(
@@ -842,6 +938,101 @@ def validate_universal_scheduler_sections(sections):
                     issues.append(f"config/google_sheets_sync.yaml: '{field}' cannot be blank.")
     else:
         issues.append("config/google_sheets_sync.yaml: top level must be a YAML map.")
+
+    if isinstance(scheduler_policy_data, dict):
+        limits = scheduler_policy_data.get("limits", {})
+        penalties = scheduler_policy_data.get("penalties", {})
+        weights = scheduler_policy_data.get("weights", {})
+        bonuses = scheduler_policy_data.get("bonuses", {})
+        fallbacks = scheduler_policy_data.get("fallbacks", {})
+        safety = scheduler_policy_data.get("safety", {})
+        special_rules = scheduler_policy_data.get("special_rules", {})
+
+        for section_name, section_data in (
+            ("limits", limits),
+            ("penalties", penalties),
+            ("weights", weights),
+            ("bonuses", bonuses),
+            ("fallbacks", fallbacks),
+            ("safety", safety),
+            ("special_rules", special_rules),
+        ):
+            if section_data and not isinstance(section_data, dict):
+                issues.append(f"config/scheduler_policy.yaml: '{section_name}' must be a YAML map.")
+
+        for field_name in (
+            "max_assignments_per_member_per_month",
+            "max_director_track_directs_per_month",
+            "max_red_assignments_per_month",
+            "max_high_tier_yellow_shoot_rank",
+            "max_high_tier_yellow_editor_rank",
+            "high_tier_reserve_window_days",
+            "high_tier_recent_window_days",
+            "max_same_high_tier_event_assignments",
+            "creative_team_meet_max_yellow_editor_rank",
+            "creative_team_meet_anchor_yellow_shoot_rank",
+        ):
+            if field_name in limits and (
+                not isinstance(limits.get(field_name), int) or limits.get(field_name) < 0
+            ):
+                issues.append(
+                    f"config/scheduler_policy.yaml: '{field_name}' must be an integer >= 0."
+                )
+
+        for field_name, source in (
+            ("consecutive_event_penalty", penalties),
+            ("repeated_high_tier_event_penalty", penalties),
+            ("recent_high_tier_window_penalty", penalties),
+            ("repeated_event_editor_pair_penalty", penalties),
+            ("repeated_low_tier_event_penalty", penalties),
+            ("repeated_weekday_low_tier_penalty", penalties),
+            ("weekday_late_low_tier_penalty", penalties),
+            ("multi_day_high_tier_early_day_strength_reserve", penalties),
+            ("upcoming_high_tier_reserve_penalty", penalties),
+            ("upcoming_high_tier_preload_penalty", penalties),
+            ("upcoming_high_tier_preload_same_role_penalty", penalties),
+            ("priority_rank", weights),
+            ("role_serve_count", weights),
+            ("total_serve_count", weights),
+            ("first_monthly_photographer_assignment", bonuses),
+            ("yellow_photo_coverage_bonus", bonuses),
+            ("green_editor_rotation_bonus", bonuses),
+            ("weekend_service_for_weekday_late_member", bonuses),
+            ("multi_day_high_tier_final_day_strength_boost", bonuses),
+            ("creative_team_meet_anchor_bonus", bonuses),
+            ("blank_rank_value", fallbacks),
+        ):
+            if field_name in source and (
+                not isinstance(source.get(field_name), int) or source.get(field_name) < 0
+            ):
+                issues.append(
+                    f"config/scheduler_policy.yaml: '{field_name}' must be an integer >= 0."
+                )
+
+        required_guides_for = safety.get("required_guides_for", [])
+        if required_guides_for and not isinstance(required_guides_for, list):
+            issues.append("config/scheduler_policy.yaml: 'safety.required_guides_for' must be a list.")
+        elif isinstance(required_guides_for, list):
+            for name in required_guides_for:
+                normalized_name = str(name).strip()
+                if not normalized_name:
+                    issues.append(
+                        "config/scheduler_policy.yaml: 'safety.required_guides_for' cannot contain blank names."
+                    )
+                elif member_names and normalized_name not in member_names:
+                    issues.append(
+                        f"config/scheduler_policy.yaml: unknown member '{normalized_name}' in safety.required_guides_for."
+                    )
+
+        if (
+            "use_scoring_only_after_hard_constraints" in special_rules
+            and not isinstance(special_rules.get("use_scoring_only_after_hard_constraints"), bool)
+        ):
+            issues.append(
+                "config/scheduler_policy.yaml: 'special_rules.use_scoring_only_after_hard_constraints' must be true or false."
+            )
+    else:
+        issues.append("config/scheduler_policy.yaml: top level must be a YAML map.")
 
     if issues:
         raise UniversalSchedulerValidationError(issues)

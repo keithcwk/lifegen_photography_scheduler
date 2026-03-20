@@ -4,6 +4,7 @@ sheet_layout:
     Each event occupies one column. Rows represent event metadata first, then
     assignment roles. A separate summary section tracks workload, and a bad
     dates section records availability constraints.
+
   blank_event_titles:
     - Sunday Service
 
@@ -60,6 +61,10 @@ sheet_layout:
         key: sde_2
         label: SDE 2
         required: true
+      - row: 14
+        key: shadow
+        label: Shadow
+        required: false
 
   default_event_profiles:
     sunday_service:
@@ -75,6 +80,7 @@ sheet_layout:
         - assist
         - photographer_5
         - floor_runner
+        - shadow
 
   summary_section:
     orientation: row_based_members
@@ -98,6 +104,7 @@ sheet_layout:
     columns:
       - event
       - date
+      - unavailable
       - director
       - assist
       - photographer_1
@@ -108,3 +115,4 @@ sheet_layout:
       - floor_runner
       - sde_1
       - sde_2
+      - shadow
