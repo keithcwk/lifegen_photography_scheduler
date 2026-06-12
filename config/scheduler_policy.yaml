@@ -21,6 +21,7 @@ penalties:
   creative_team_meet_editor_repeat_penalty: 65
   creative_team_meet_editor_overuse_penalty: 140
   weekday_late_low_tier_penalty: 80
+  repeated_monthly_director_penalty: 200
   multi_day_high_tier_early_day_strength_reserve: 10
   upcoming_high_tier_reserve_penalty: 35
   upcoming_high_tier_preload_penalty: 90
@@ -51,3 +52,7 @@ safety:
 
 special_rules:
   use_scoring_only_after_hard_constraints: true
+  frequency_exempt_events:
+    - Power Conference KL
+    - Power Conference JB
+    - Power Festival

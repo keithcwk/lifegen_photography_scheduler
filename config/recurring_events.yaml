@@ -1,5 +1,5 @@
 generation_window:
-  months_after_last_explicit_event: 1
+  months_after_last_explicit_event: 0
 
 recurring_events:
   - event: Sunday Service

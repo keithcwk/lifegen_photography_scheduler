@@ -68,6 +68,8 @@ Rules:
 - Director-track members may direct at most once per calendar month.
 - If a director-track member is assigned as Director, the Assist slot must be filled by a green and they must never direct alone.
 - Director-track members should get low-tier and selected standard-tier leadership opportunities before high-tier events.
+- From August onward, director-track members may also direct standard services (e.g. Sunday Service, Worship Encounter), still under green-assist supervision.
+- When a director-track member directs, the photographer lineup must keep at least one non-red member (never an all-red lineup).
 
 ## Reds
 
@@ -75,6 +77,11 @@ Alvin
 Josiah
 Isaac
 Aslvin
+Nick How
+Brandel
+See Qian
+Sheryl
+Samantha
 
 ## Safety Rule
 
@@ -83,6 +90,8 @@ If Isaac or Aslvin are scheduled, they must be accompanied by:
 - any member with `guide: true`
 
 This accompaniment must be visible within the photographer lineup, not only in director or editor slots.
+
+Only Isaac and Aslvin require this guide accompaniment. The other reds (Josiah, Alvin) serve without a guide or assist.
 
 ## Team Composition Rules
 
@@ -102,6 +111,8 @@ This accompaniment must be visible within the photographer lineup, not only in d
 - Multi-day high tier events should still rotate qualified people across the run and should not keep using the same person day after day unless needed
 - A member should generally not appear more than twice across the same multi-day high tier event run
 - Low tier events should prioritize yellow and red photographer opportunities
+- Reds should be steered toward low tier event photographer slots (Creative Team Meet, Lifegen Prayer) as their main development opportunities, on top of their required Sunday Service red slot
+- Every red should receive at least one photographer slot across the quarter
 - Low tier events should generally avoid using greens in photographer slots unless needed to keep the schedule workable
 - Sunday Service must include at least 1 green, 1 yellow, and 1 red
 - Sunday Service must show 4 photographer slots after any supervision pairings are resolved
@@ -123,8 +134,11 @@ This accompaniment must be visible within the photographer lineup, not only in d
 - Green editors may also rotate into SDE slots on standard and low tier events to spread editor load and development
 - Sunday Service should ideally avoid having 2 green photographer slots unless needed for stability
 - No service may have more than 2 reds
+- Directing should be spread across the team so each director directs at most once per calendar month wherever the month's event count allows; idle directors should be used before anyone directs twice
 - Leaders Meet should only schedule members marked as leaders in `data/team.yaml`
-- Leaders Meet only needs 1 photographer
+- Leaders Meet needs at least 1 photographer and 1 editor, both of whom must be leaders
+- Worship Encounter is a slightly higher tier service: it follows Sunday Service composition but uses no reds, with 4 photographer slots filled from greens and yellows only (at least 1 green and 1 yellow) and 2 editor slots
+- Lifegen Prayer editor may be a yellow or mid-low tier editor and should not default to a top-strength editor
 - Creative Team Meet and Lifegen Prayer should be balanced across the quarter so the same person is not repeated in the same role too often
 - Low tier events should also be balanced more holistically, so the same person is not repeatedly used for the same low tier event across the quarter unless needed
 - Members marked `weekday_late: true` should be used less on weekday low tier events and can be routed toward occasional Sunday Service opportunities instead
@@ -153,6 +167,17 @@ Low Risk:
 - Leaders Meet
 - Creative Team Meet
 - Lifegen Prayer
+
+Special Events (frequency-exempt):
+
+- Power Conference KL
+- Power Conference JB
+- Power Festival
+
+Special events are multi-day or one-off events. Their slots do not count toward
+monthly assignment caps, consecutive-date penalties, or role frequency fairness,
+so members can serve them without affecting their normal load. Listed in
+`config/scheduler_policy.yaml` under `special_rules.frequency_exempt_events`.
 
 ## Recurring Planning Rules
 
@@ -325,6 +350,21 @@ reds:
   - name: Aslvin
     shoot_rank: 18
 
+  - name: Nick How
+    shoot_rank: 19
+
+  - name: Brandel
+    shoot_rank: 20
+
+  - name: See Qian
+    shoot_rank: 21
+
+  - name: Sheryl
+    shoot_rank: 22
+
+  - name: Samantha
+    shoot_rank: 23
+
 shadows: []
 ```
 
@@ -352,29 +392,48 @@ Example
 01 Jun 2026 - Lifegen Camp
 -->
 
-03 Apr 2026 - Good Friday
-05 Apr 2026 - Easter
-10 Apr 2026 - Leaders Meet
-08 May 2026 - Leaders Meet
-10 May 2026 - Mother's Day
-22 May 2026 - Creative Team Meet
-29 May 2026 - Lifegen Camp
-30 May 2026 - Lifegen Camp
-31 May 2026 - Lifegen Camp
-01 Jun 2026 - Lifegen Camp
-09 Jun 2026 - Lifegen Prayer
-12 Jun 2026 - Leaders Meet
-21 Jun 2026 - Father's Day
+05 Jul 2026 - Worship Encounter
+07 Jul 2026 - Lifegen Prayer
+10 Jul 2026 - Leaders Meet
+12 Jul 2026 - Sunday Service
+19 Jul 2026 - Sunday Service
+24 Jul 2026 - Creative Team Meet
+26 Jul 2026 - Sunday Service
+02 Aug 2026 - Sunday Service
+09 Aug 2026 - Sunday Service
+11 Aug 2026 - Lifegen Prayer
+14 Aug 2026 - Leaders Meet
+16 Aug 2026 - Sunday Service
+18 Aug 2026 - Power Night
+23 Aug 2026 - Sunday Service
+28 Aug 2026 - Creative Team Meet
+30 Aug 2026 - Sunday Service
+01 Sep 2026 - Lifegen Prayer
+06 Sep 2026 - Sunday Service
+11 Sep 2026 - Power Conference KL
+12 Sep 2026 - Power Conference KL
+13 Sep 2026 - Power Conference KL
+18 Sep 2026 - Creative Team Meet
+20 Sep 2026 - Sunday Service
+27 Sep 2026 - Sunday Service
+02 Oct 2026 - Power Conference JB
+03 Oct 2026 - Power Conference JB
+04 Oct 2026 - Power Conference JB
 
 ## Exclusions
 
-03 Apr 2026 - Leaders Meet
-01 May 2026 - Leaders Meet
-29 May 2026 - Creative Team Meet
-31 May 2026 - Sunday Service
-24 May 2026 - Sunday Service
-02 Jun 2026 - Lifegen Prayer
-05 Jun 2026 - Leaders Meet
+03 Jul 2026 - Leaders Meet
+31 Jul 2026 - Creative Team Meet
+04 Aug 2026 - Lifegen Prayer
+07 Aug 2026 - Leaders Meet
+04 Sep 2026 - Leaders Meet
+25 Sep 2026 - Creative Team Meet
+02 Oct 2026 - Leaders Meet
+06 Oct 2026 - Lifegen Prayer
+11 Oct 2026 - Sunday Service
+18 Oct 2026 - Sunday Service
+25 Oct 2026 - Sunday Service
+30 Oct 2026 - Creative Team Meet
 ```
 
 ## data/bad_dates.md
@@ -399,7 +458,67 @@ Example
 ### Alvin
 - 24 May 2026
 -->
+
+## 2026 Q3
+
+### Charites
+
+- 23 Aug 2026
+- 30 Aug 2026
+- 06 Sep 2026
+
+### Cindy
+
+- 26 Jul 2026
+
+### Joseph
+
+- 12 Jul 2026
+- 19 Jul 2026
+- 26 Jul 2026
+
+### Nic
+
+- 05 Jul 2026
+
+### Wing Yan
+
+- 11 Jul 2026
+- 12 Jul 2026
+- 22 Aug 2026
+- 23 Aug 2026
+
+### Josiah
+
+- 07 Jul 2026
+- 11 Aug 2026
+- 01 Sep 2026
+
+### Gavin
+
+- 02 Aug 2026
+
+### Alvin
+
+- 30 Aug 2026
+
+### Sheryl
+
+- 13 Aug 2026
+- 14 Aug 2026
+- 15 Aug 2026
+- 16 Aug 2026
+- 17 Aug 2026
+- 18 Aug 2026
+- 19 Aug 2026
+- 20 Aug 2026
 ```
+
+```
+
+```
+
+````
 
 ## config/event_types.yaml
 
@@ -473,11 +592,56 @@ events:
     min_green_photographers: 2
     max_red_photographers: 0
 
+  Worship Encounter:
+    photographers: 4
+    director: 1
+    assist: 0
+    editors: 2
+    floor_runner: 0
+    shadow: 0
+    tier: standard
+    min_green_photographers: 1
+    min_yellow_photographers: 1
+    max_red_photographers: 0
+
+  Power Night:
+    photographers: 4
+    director: 1
+    assist: 0
+    editors: 2
+    floor_runner: 0
+    shadow: 0
+    tier: standard
+    min_green_photographers: 1
+    max_red_photographers: 2
+
+  Power Conference KL:
+    photographers: 4
+    director: 1
+    assist: 0
+    editors: 2
+    floor_runner: 0
+    shadow: 0
+    tier: high
+    min_green_photographers: 2
+    max_red_photographers: 0
+
+  Power Conference JB:
+    photographers: 4
+    director: 1
+    assist: 0
+    editors: 2
+    floor_runner: 0
+    shadow: 0
+    tier: high
+    min_green_photographers: 2
+    max_red_photographers: 0
+
   Leaders Meet:
     photographers: 1
     director: 1
     assist: 0
-    editors: 0
+    editors: 1
     floor_runner: 0
     shadow: 0
     tier: low
@@ -502,13 +666,13 @@ events:
     floor_runner: 0
     shadow: 0
     tier: low
-```
+````
 
 ## config/recurring_events.yaml
 
 ```yaml
 generation_window:
-  months_after_last_explicit_event: 1
+  months_after_last_explicit_event: 0
 
 recurring_events:
   - event: Sunday Service
@@ -726,7 +890,7 @@ sheet_layout:
 ```yaml
 google_sheets:
   spreadsheet_id: "1vEDY8SNbTKOyvSPSxq8xqzSrNZvld3nBD8SvQu3x2Gw"
-  worksheet_title: "GPT Schedule Q2 Test"
+  worksheet_title: "GPT Schedule Q3 Test"
   service_account_json: "/Users/keithchan/Codes/lifegen_photography_scheduler/google_credentials.json"
   clear_before_write: false
   create_worksheet_if_missing: true
@@ -758,6 +922,7 @@ penalties:
   creative_team_meet_editor_repeat_penalty: 65
   creative_team_meet_editor_overuse_penalty: 140
   weekday_late_low_tier_penalty: 80
+  repeated_monthly_director_penalty: 200
   multi_day_high_tier_early_day_strength_reserve: 10
   upcoming_high_tier_reserve_penalty: 35
   upcoming_high_tier_preload_penalty: 90
@@ -788,4 +953,8 @@ safety:
 
 special_rules:
   use_scoring_only_after_hard_constraints: true
+  frequency_exempt_events:
+    - Power Conference KL
+    - Power Conference JB
+    - Power Festival
 ```

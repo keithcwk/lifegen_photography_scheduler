@@ -67,11 +67,56 @@ events:
     min_green_photographers: 2
     max_red_photographers: 0
 
+  Worship Encounter:
+    photographers: 4
+    director: 1
+    assist: 0
+    editors: 2
+    floor_runner: 0
+    shadow: 0
+    tier: standard
+    min_green_photographers: 1
+    min_yellow_photographers: 1
+    max_red_photographers: 0
+
+  Power Night:
+    photographers: 4
+    director: 1
+    assist: 0
+    editors: 2
+    floor_runner: 0
+    shadow: 0
+    tier: standard
+    min_green_photographers: 1
+    max_red_photographers: 2
+
+  Power Conference KL:
+    photographers: 4
+    director: 1
+    assist: 0
+    editors: 2
+    floor_runner: 0
+    shadow: 0
+    tier: high
+    min_green_photographers: 2
+    max_red_photographers: 0
+
+  Power Conference JB:
+    photographers: 4
+    director: 1
+    assist: 0
+    editors: 2
+    floor_runner: 0
+    shadow: 0
+    tier: high
+    min_green_photographers: 2
+    max_red_photographers: 0
+
   Leaders Meet:
     photographers: 1
     director: 1
     assist: 0
-    editors: 0
+    editors: 1
     floor_runner: 0
     shadow: 0
     tier: low

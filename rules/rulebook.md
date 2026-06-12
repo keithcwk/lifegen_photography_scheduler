@@ -50,6 +50,8 @@ Rules:
 - Director-track members may direct at most once per calendar month.
 - If a director-track member is assigned as Director, the Assist slot must be filled by a green and they must never direct alone.
 - Director-track members should get low-tier and selected standard-tier leadership opportunities before high-tier events.
+- From August onward, director-track members may also direct standard services (e.g. Sunday Service, Worship Encounter), still under green-assist supervision.
+- When a director-track member directs, the photographer lineup must keep at least one non-red member (never an all-red lineup).
 
 ## Reds
 
@@ -57,6 +59,11 @@ Alvin
 Josiah
 Isaac
 Aslvin
+Nick How
+Brandel
+See Qian
+Sheryl
+Samantha
 
 ## Safety Rule
 
@@ -65,6 +72,8 @@ If Isaac or Aslvin are scheduled, they must be accompanied by:
 - any member with `guide: true`
 
 This accompaniment must be visible within the photographer lineup, not only in director or editor slots.
+
+Only Isaac and Aslvin require this guide accompaniment. The other reds (Josiah, Alvin) serve without a guide or assist.
 
 ## Team Composition Rules
 
@@ -84,6 +93,8 @@ This accompaniment must be visible within the photographer lineup, not only in d
 - Multi-day high tier events should still rotate qualified people across the run and should not keep using the same person day after day unless needed
 - A member should generally not appear more than twice across the same multi-day high tier event run
 - Low tier events should prioritize yellow and red photographer opportunities
+- Reds should be steered toward low tier event photographer slots (Creative Team Meet, Lifegen Prayer) as their main development opportunities, on top of their required Sunday Service red slot
+- Every red should receive at least one photographer slot across the quarter
 - Low tier events should generally avoid using greens in photographer slots unless needed to keep the schedule workable
 - Sunday Service must include at least 1 green, 1 yellow, and 1 red
 - Sunday Service must show 4 photographer slots after any supervision pairings are resolved
@@ -105,8 +116,11 @@ This accompaniment must be visible within the photographer lineup, not only in d
 - Green editors may also rotate into SDE slots on standard and low tier events to spread editor load and development
 - Sunday Service should ideally avoid having 2 green photographer slots unless needed for stability
 - No service may have more than 2 reds
+- Directing should be spread across the team so each director directs at most once per calendar month wherever the month's event count allows; idle directors should be used before anyone directs twice
 - Leaders Meet should only schedule members marked as leaders in `data/team.yaml`
-- Leaders Meet only needs 1 photographer
+- Leaders Meet needs at least 1 photographer and 1 editor, both of whom must be leaders
+- Worship Encounter is a slightly higher tier service: it follows Sunday Service composition but uses no reds, with 4 photographer slots filled from greens and yellows only (at least 1 green and 1 yellow) and 2 editor slots
+- Lifegen Prayer editor may be a yellow or mid-low tier editor and should not default to a top-strength editor
 - Creative Team Meet and Lifegen Prayer should be balanced across the quarter so the same person is not repeated in the same role too often
 - Low tier events should also be balanced more holistically, so the same person is not repeatedly used for the same low tier event across the quarter unless needed
 - Members marked `weekday_late: true` should be used less on weekday low tier events and can be routed toward occasional Sunday Service opportunities instead
@@ -135,6 +149,17 @@ Low Risk:
 - Leaders Meet
 - Creative Team Meet
 - Lifegen Prayer
+
+Special Events (frequency-exempt):
+
+- Power Conference KL
+- Power Conference JB
+- Power Festival
+
+Special events are multi-day or one-off events. Their slots do not count toward
+monthly assignment caps, consecutive-date penalties, or role frequency fairness,
+so members can serve them without affecting their normal load. Listed in
+`config/scheduler_policy.yaml` under `special_rules.frequency_exempt_events`.
 
 ## Recurring Planning Rules
 

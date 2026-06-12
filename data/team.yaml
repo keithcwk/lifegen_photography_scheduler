@@ -119,4 +119,19 @@ reds:
   - name: Aslvin
     shoot_rank: 18
 
+  - name: Nick How
+    shoot_rank: 19
+
+  - name: Brandel
+    shoot_rank: 20
+
+  - name: See Qian
+    shoot_rank: 21
+
+  - name: Sheryl
+    shoot_rank: 22
+
+  - name: Samantha
+    shoot_rank: 23
+
 shadows: []

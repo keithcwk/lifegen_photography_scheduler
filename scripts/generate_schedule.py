@@ -48,6 +48,7 @@ DEFAULT_SCHEDULER_POLICY = {
         "creative_team_meet_editor_repeat_penalty": 65,
         "creative_team_meet_editor_overuse_penalty": 140,
         "weekday_late_low_tier_penalty": 80,
+        "repeated_monthly_director_penalty": 200,
         "multi_day_high_tier_early_day_strength_reserve": 10,
         "upcoming_high_tier_reserve_penalty": 35,
         "upcoming_high_tier_preload_penalty": 90,
@@ -76,6 +77,11 @@ DEFAULT_SCHEDULER_POLICY = {
     },
     "special_rules": {
         "use_scoring_only_after_hard_constraints": True,
+        "frequency_exempt_events": [
+            "Power Conference KL",
+            "Power Conference JB",
+            "Power Festival",
+        ],
     },
 }
 SCHEDULER_POLICY = DEFAULT_SCHEDULER_POLICY.copy()
@@ -928,26 +934,6 @@ def reached_monthly_assignment_limit(stats, name, event_date):
     return stats[name]["monthly_events"][month_key(event_date)] > limit
 
 
-def reached_nonfinal_high_tier_monthly_limit(stats, name, event_date):
-    limit = policy_limit("max_assignments_per_member_per_month")
-    if limit <= 0:
-        return False
-    return stats[name]["monthly_events"][month_key(event_date)] > limit
-
-
-def reached_high_tier_event_repeat_limit(stats, name, event_name, event_date, tier):
-    if tier != "high":
-        return False
-
-    limit = policy_limit("max_same_high_tier_event_assignments")
-    if limit <= 0:
-        return False
-
-    quarter = quarter_key(event_date.date())
-    event_role_counts = stats[name]["quarterly_event_role_counts"][quarter][event_name]
-    return sum(event_role_counts.values()) >= limit
-
-
 def fairness_penalty(stats, name, event_date, tier):
     person_stats = stats[name]
     monthly_events = person_stats["monthly_events"][month_key(event_date)]
@@ -1169,6 +1155,13 @@ def is_creative_team_meet(event_name):
     return event_name == "Creative Team Meet"
 
 
+def is_frequency_exempt_event(event_name):
+    """Special events (e.g. Power Conferences) whose slots ignore frequency fairness."""
+    return event_name in set(
+        SCHEDULER_POLICY["special_rules"].get("frequency_exempt_events", [])
+    )
+
+
 def choose_best_candidate(candidate_names, score_fn, failure_message):
     scored_candidates = []
 
@@ -1242,6 +1235,15 @@ def high_tier_rotation_penalty(stats, name, event_date, role):
             penalty += 32
 
     return penalty
+
+
+def high_tier_role_penalties(stats, name, event_name, event_date, tier, role):
+    """Combined high-tier rotation + repeat + recency penalties for a role."""
+    return (
+        high_tier_rotation_penalty(stats, name, event_date, role)
+        + repeated_high_tier_event_penalty(stats, name, event_name, event_date, tier)
+        + recent_high_tier_window_penalty(stats, name, event_date, tier)
+    )
 
 
 def upcoming_high_tier_reserve_penalty(event, member, role):
@@ -1366,20 +1368,28 @@ def director_score(name, members, stats, event_name, event_date, tier, event=Non
         )
     ):
         return None
-    if tier != "high" and reached_monthly_assignment_limit(stats, name, event_date):
+    if (
+        tier != "high"
+        and not is_frequency_exempt_event(event_name)
+        and reached_monthly_assignment_limit(stats, name, event_date)
+    ):
         return None
 
-    score = fairness_penalty(stats, name, event_date, tier)
+    score = 0 if is_frequency_exempt_event(event_name) else fairness_penalty(stats, name, event_date, tier)
     score += role_count_penalty(stats, name, "director")
+    if not is_frequency_exempt_event(event_name):
+        # Spread directing across the team: strongly discourage directing twice in one month
+        score += (
+            monthly_role_count(stats, name, "director", event_date)
+            * policy_penalty("repeated_monthly_director_penalty")
+        )
     score += repeated_event_role_penalty(stats, name, event_name, "director", event_date)
     score += repeated_low_tier_event_penalty(stats, name, event_name, event_date, tier)
     score += repeated_weekday_low_tier_role_penalty(
         stats, name, "director", event_name, event_date, tier
     )
     if tier == "high":
-        score += high_tier_rotation_penalty(stats, name, event_date, "director")
-        score += repeated_high_tier_event_penalty(stats, name, event_name, event_date, tier)
-        score += recent_high_tier_window_penalty(stats, name, event_date, tier)
+        score += high_tier_role_penalties(stats, name, event_name, event_date, tier, "director")
     elif event is not None:
         score += upcoming_high_tier_reserve_penalty(event, member, "director")
     if event is not None:
@@ -1402,6 +1412,9 @@ def director_score(name, members, stats, event_name, event_date, tier, event=Non
             return None
         if tier == "low":
             score -= 18
+        elif tier == "standard" and event_date.month >= 8:
+            # August onward: trainees may direct services (still under green-assist supervision)
+            score += 8
         else:
             score += 35
     else:
@@ -1432,10 +1445,14 @@ def assist_score(name, members, stats, event_name, event_date, tier="standard", 
         )
     ):
         return None
-    if tier != "high" and reached_monthly_assignment_limit(stats, name, event_date):
+    if (
+        tier != "high"
+        and not is_frequency_exempt_event(event_name)
+        and reached_monthly_assignment_limit(stats, name, event_date)
+    ):
         return None
 
-    score = fairness_penalty(stats, name, event_date, tier)
+    score = 0 if is_frequency_exempt_event(event_name) else fairness_penalty(stats, name, event_date, tier)
     score += repeated_event_role_penalty(stats, name, event_name, "assist", event_date)
     score += repeated_low_tier_event_penalty(stats, name, event_name, event_date, tier)
     score += repeated_weekday_low_tier_role_penalty(
@@ -1444,9 +1461,7 @@ def assist_score(name, members, stats, event_name, event_date, tier="standard", 
     score += role_count_penalty(stats, name, "assist")
     score += monthly_role_count(stats, name, "assist", event_date) * 8
     if tier == "high":
-        score += high_tier_rotation_penalty(stats, name, event_date, "assist")
-        score += repeated_high_tier_event_penalty(stats, name, event_name, event_date, tier)
-        score += recent_high_tier_window_penalty(stats, name, event_date, tier)
+        score += high_tier_role_penalties(stats, name, event_name, event_date, tier, "assist")
         score += high_tier_shoot_strength_penalty(
             member,
             {"green": 3},
@@ -1480,7 +1495,11 @@ def editor_score(name, members, stats, event_name, event_date, tier, director_na
         )
     ):
         return None
-    if tier != "high" and reached_monthly_assignment_limit(stats, name, event_date):
+    if (
+        tier != "high"
+        and not is_frequency_exempt_event(event_name)
+        and reached_monthly_assignment_limit(stats, name, event_date)
+    ):
         return None
     if member["role"] == "red" and not (
         is_creative_team_meet(event_name) and is_creative_team_meet_red_editor(name, members)
@@ -1493,7 +1512,7 @@ def editor_score(name, members, stats, event_name, event_date, tier, director_na
     ):
         return None
 
-    score = fairness_penalty(stats, name, event_date, tier)
+    score = 0 if is_frequency_exempt_event(event_name) else fairness_penalty(stats, name, event_date, tier)
     score += role_count_penalty(stats, name, "editor")
     score += repeated_event_role_penalty(stats, name, event_name, "editor", event_date)
     score += repeated_low_tier_event_penalty(stats, name, event_name, event_date, tier)
@@ -1509,9 +1528,7 @@ def editor_score(name, members, stats, event_name, event_date, tier, director_na
 
     if member["role"] == "yellow":
         if tier == "high":
-            score += high_tier_rotation_penalty(stats, name, event_date, "editor")
-            score += repeated_high_tier_event_penalty(stats, name, event_name, event_date, tier)
-            score += recent_high_tier_window_penalty(stats, name, event_date, tier)
+            score += high_tier_role_penalties(stats, name, event_name, event_date, tier, "editor")
             score += member["editor_rank"] * (policy_weight("priority_rank") + 4)
             if member["editor_rank"] > 4:
                 score += (member["editor_rank"] - 4) * 24
@@ -1528,9 +1545,7 @@ def editor_score(name, members, stats, event_name, event_date, tier, director_na
                 score -= policy_bonus("creative_team_meet_lower_yellow_editor_rotation_bonus")
     elif member["role"] == "green":
         if tier == "high":
-            score += high_tier_rotation_penalty(stats, name, event_date, "editor")
-            score += repeated_high_tier_event_penalty(stats, name, event_name, event_date, tier)
-            score += recent_high_tier_window_penalty(stats, name, event_date, tier)
+            score += high_tier_role_penalties(stats, name, event_name, event_date, tier, "editor")
             score += member["editor_rank"] * policy_weight("priority_rank")
             if member["editor_rank"] > 4:
                 score += (member["editor_rank"] - 4) * 18
@@ -1558,6 +1573,15 @@ def editor_score(name, members, stats, event_name, event_date, tier, director_na
 
     if name == director_name:
         score += 40
+
+    if event_name == "Lifegen Prayer":
+        # Prayer editor should lean yellow / mid-low tier, not a top-strength editor
+        if member["role"] == "green":
+            score += 18
+        if member["editor_rank"] <= 3:
+            score += 15
+        elif member["editor_rank"] >= 5:
+            score -= 12
 
     if event is not None:
         score += upcoming_high_tier_preload_penalty(stats, name, "editor", event)
@@ -1683,7 +1707,9 @@ def sunday_strength_metrics(photographers, members):
     return strong_count, development_heavy_count
 
 
-def photographer_score(name, members, stats, event_name, event_date, tier, event=None):
+def photographer_score(
+    name, members, stats, event_name, event_date, tier, event=None, relax_monthly_limit=False
+):
     member = members[name]
     if not member["can_shoot"]:
         return None
@@ -1702,14 +1728,23 @@ def photographer_score(name, members, stats, event_name, event_date, tier, event
         )
     ):
         return None
-    if tier != "high" and reached_monthly_assignment_limit(stats, name, event_date):
+    if (
+        tier != "high"
+        and not relax_monthly_limit
+        and not is_frequency_exempt_event(event_name)
+        and reached_monthly_assignment_limit(stats, name, event_date)
+    ):
         return None
-    if reached_monthly_red_limit(stats, name, event_date, members):
+    if (
+        not relax_monthly_limit
+        and not is_frequency_exempt_event(event_name)
+        and reached_monthly_red_limit(stats, name, event_date, members)
+    ):
         return None
     if tier == "high" and is_disallowed_high_tier_photographer(name, members):
         return None
 
-    score = fairness_penalty(stats, name, event_date, tier)
+    score = 0 if is_frequency_exempt_event(event_name) else fairness_penalty(stats, name, event_date, tier)
     if monthly_role_count(stats, name, "photographer", event_date) >= 2:
         score += 140
     score += role_count_penalty(stats, name, "photographer")
@@ -1720,9 +1755,7 @@ def photographer_score(name, members, stats, event_name, event_date, tier, event
     )
 
     if tier == "high":
-        score += high_tier_rotation_penalty(stats, name, event_date, "photographer")
-        score += repeated_high_tier_event_penalty(stats, name, event_name, event_date, tier)
-        score += recent_high_tier_window_penalty(stats, name, event_date, tier)
+        score += high_tier_role_penalties(stats, name, event_name, event_date, tier, "photographer")
         if member["role"] == "green":
             score += high_tier_shoot_strength_penalty(
                 member,
@@ -2027,13 +2060,20 @@ def pick_creative_team_meet_editors(event, members, stats, bad_dates, director_n
 
 
 def choose_required_photographer(candidate_names, members, stats, event_name, event_date, tier, label, event=None):
-    return choose_best_candidate(
-        candidate_names,
-        lambda name: photographer_score(
-            name, members, stats, event_name, event_date, tier, event=event
-        ),
-        f"Could not find {label} for {event_date.strftime('%Y-%m-%d')}.",
-    )
+    message = f"Could not find {label} for {event_date.strftime('%Y-%m-%d')}."
+
+    def scorer(relax):
+        return lambda name: photographer_score(
+            name, members, stats, event_name, event_date, tier, event=event,
+            relax_monthly_limit=relax,
+        )
+
+    try:
+        return choose_best_candidate(candidate_names, scorer(False), message)
+    except SchedulingError:
+        # A hard role requirement could not be met under the monthly cap; relax it
+        # rather than fail (fairness still applies as a penalty everywhere else).
+        return choose_best_candidate(candidate_names, scorer(True), message)
 
 
 def is_valid_default_editor_pair(editors, event, members):
@@ -2172,6 +2212,10 @@ def pick_photographers(event, members, stats, bad_dates, director_name, assist, 
         target_yellow_photographers = min(1, max(0, required - target_green_photographers))
     elif tier == "standard" and required > 0:
         minimum_green_photographers = 1
+
+    if members[director_name]["director_track"] and required > 0:
+        # Trainee directors should not lead an all-red photographer lineup; keep >=1 non-red
+        max_red_photographers = min(max_red_photographers, max(0, required - 1))
 
     if is_creative_team_meet(event_name):
         minimum_yellow_photographers = max(minimum_yellow_photographers, 1)
@@ -3085,87 +3129,56 @@ def update_stats(stats, event, director, assist, editors, photographers):
     month = month_key(event_date)
     quarter = quarter_key(event_date.date())
     tier = event["requirements"]["tier"]
-    is_weekday_low_tier = is_weekday_low_tier_event(event["event"], event_date, tier)
+    event_name = event["event"]
+    exempt = is_frequency_exempt_event(event_name)
+    is_weekday_low_tier = is_weekday_low_tier_event(event_name, event_date, tier)
     upcoming_high_tier_key = event.get("next_high_tier_event_key")
     participants = set([director, *([assist] if assist else []), *editors, *photographers])
 
+    # Frequency-exempt special events skip normal-load fairness, but high-tier ones still
+    # track high-tier/per-event counters so the same crew rotates across the event's days.
     for name in participants:
-        stats[name]["total_events"] += 1
-        stats[name]["monthly_events"][month] += 1
-        stats[name]["last_assigned"] = event_date.date()
+        if not exempt:
+            stats[name]["total_events"] += 1
+            stats[name]["monthly_events"][month] += 1
+            stats[name]["last_assigned"] = event_date.date()
         if tier == "high":
             stats[name]["high_tier_events"] += 1
             stats[name]["monthly_high_tier_events"][month] += 1
             stats[name]["last_high_tier_assigned"] = event_date.date()
-            stats[name]["last_high_tier_event_name"] = event["event"]
+            stats[name]["last_high_tier_event_name"] = event_name
             stats[name]["high_tier_dates"].append(event_date.date())
 
-    stats[director]["role_counts"]["director"] += 1
-    stats[director]["monthly_role_counts"][month]["director"] += 1
-    stats[director]["monthly_event_role_counts"][month][event["event"]]["director"] += 1
-    stats[director]["quarterly_event_role_counts"][quarter][event["event"]]["director"] += 1
-    stats[director]["event_role_counts_total"][event["event"]]["director"] += 1
-    if is_weekday_low_tier:
-        stats[director]["quarterly_weekday_low_tier_role_counts"][quarter]["director"] += 1
-    if tier != "high" and upcoming_high_tier_key:
-        stats[director]["upcoming_high_tier_preload_counts"][upcoming_high_tier_key] += 1
-        stats[director]["upcoming_high_tier_preload_role_counts"][upcoming_high_tier_key]["director"] += 1
-    if tier == "high":
-        stats[director]["high_tier_role_counts"]["director"] += 1
-        stats[director]["monthly_high_tier_role_counts"][month]["director"] += 1
-        stats[director]["last_high_tier_role_assigned"]["director"] = event_date.date()
+    def bump_role(name, role):
+        person = stats[name]
+        person["quarterly_event_role_counts"][quarter][event_name][role] += 1
+        if not exempt:
+            person["role_counts"][role] += 1
+            person["monthly_role_counts"][month][role] += 1
+            person["monthly_event_role_counts"][month][event_name][role] += 1
+            person["event_role_counts_total"][event_name][role] += 1
+            if is_weekday_low_tier:
+                person["quarterly_weekday_low_tier_role_counts"][quarter][role] += 1
+            if tier != "high" and upcoming_high_tier_key:
+                person["upcoming_high_tier_preload_counts"][upcoming_high_tier_key] += 1
+                person["upcoming_high_tier_preload_role_counts"][upcoming_high_tier_key][role] += 1
+        if tier == "high":
+            person["high_tier_role_counts"][role] += 1
+            person["monthly_high_tier_role_counts"][month][role] += 1
+            person["last_high_tier_role_assigned"][role] = event_date.date()
+
+    bump_role(director, "director")
     if assist:
-        stats[assist]["role_counts"]["assist"] += 1
-        stats[assist]["monthly_role_counts"][month]["assist"] += 1
-        stats[assist]["monthly_event_role_counts"][month][event["event"]]["assist"] += 1
-        stats[assist]["quarterly_event_role_counts"][quarter][event["event"]]["assist"] += 1
-        stats[assist]["event_role_counts_total"][event["event"]]["assist"] += 1
-        if is_weekday_low_tier:
-            stats[assist]["quarterly_weekday_low_tier_role_counts"][quarter]["assist"] += 1
-        if tier != "high" and upcoming_high_tier_key:
-            stats[assist]["upcoming_high_tier_preload_counts"][upcoming_high_tier_key] += 1
-            stats[assist]["upcoming_high_tier_preload_role_counts"][upcoming_high_tier_key]["assist"] += 1
-        if tier == "high":
-            stats[assist]["high_tier_role_counts"]["assist"] += 1
-            stats[assist]["monthly_high_tier_role_counts"][month]["assist"] += 1
-            stats[assist]["last_high_tier_role_assigned"]["assist"] = event_date.date()
+        bump_role(assist, "assist")
     for name in editors:
-        stats[name]["role_counts"]["editor"] += 1
-        stats[name]["monthly_role_counts"][month]["editor"] += 1
-        stats[name]["monthly_event_role_counts"][month][event["event"]]["editor"] += 1
-        stats[name]["quarterly_event_role_counts"][quarter][event["event"]]["editor"] += 1
-        stats[name]["event_role_counts_total"][event["event"]]["editor"] += 1
-        if is_weekday_low_tier:
-            stats[name]["quarterly_weekday_low_tier_role_counts"][quarter]["editor"] += 1
-        if tier != "high" and upcoming_high_tier_key:
-            stats[name]["upcoming_high_tier_preload_counts"][upcoming_high_tier_key] += 1
-            stats[name]["upcoming_high_tier_preload_role_counts"][upcoming_high_tier_key]["editor"] += 1
-        if tier == "high":
-            stats[name]["high_tier_role_counts"]["editor"] += 1
-            stats[name]["monthly_high_tier_role_counts"][month]["editor"] += 1
-            stats[name]["last_high_tier_role_assigned"]["editor"] = event_date.date()
-    if len(editors) == 2:
+        bump_role(name, "editor")
+    if not exempt and len(editors) == 2:
         pair_key = editor_pair_key(editors)
         for name in editors:
-            stats[name]["quarterly_event_editor_pair_counts"][quarter][event["event"]][
-                pair_key
-            ] += 1
-            stats[name]["event_editor_pair_counts_total"][event["event"]][pair_key] += 1
+            stats[name]["quarterly_event_editor_pair_counts"][quarter][event_name][pair_key] += 1
+            stats[name]["event_editor_pair_counts_total"][event_name][pair_key] += 1
     for name in photographers:
-        stats[name]["role_counts"]["photographer"] += 1
-        stats[name]["monthly_role_counts"][month]["photographer"] += 1
-        stats[name]["monthly_event_role_counts"][month][event["event"]]["photographer"] += 1
-        stats[name]["quarterly_event_role_counts"][quarter][event["event"]]["photographer"] += 1
-        stats[name]["event_role_counts_total"][event["event"]]["photographer"] += 1
-        if is_weekday_low_tier:
-            stats[name]["quarterly_weekday_low_tier_role_counts"][quarter]["photographer"] += 1
-        if tier != "high" and upcoming_high_tier_key:
-            stats[name]["upcoming_high_tier_preload_counts"][upcoming_high_tier_key] += 1
-            stats[name]["upcoming_high_tier_preload_role_counts"][upcoming_high_tier_key]["photographer"] += 1
-        if tier == "high":
-            stats[name]["high_tier_role_counts"]["photographer"] += 1
-            stats[name]["monthly_high_tier_role_counts"][month]["photographer"] += 1
-            stats[name]["last_high_tier_role_assigned"]["photographer"] = event_date.date()
+        bump_role(name, "photographer")
 
 
 def generate_schedule():

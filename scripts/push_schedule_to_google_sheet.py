@@ -588,41 +588,82 @@ def slot_names(value):
     return {part.strip() for part in str(value).split("+") if part.strip()}
 
 
+def count_member_role_frequency(name, rows):
+    """Return (shoot, sde, direct_assist) counts for a member across the given rows."""
+    shoot = sde = direct_assist = 0
+    for row in rows:
+        if name == row.get("director", ""):
+            direct_assist += 1
+        if name == row.get("assist", ""):
+            direct_assist += 1
+        if name == row.get("floor_runner", ""):
+            shoot += 1
+        photographer_names = set()
+        for field in (
+            "photographer_1",
+            "photographer_2",
+            "photographer_3",
+            "photographer_4",
+            "photographer_5",
+        ):
+            photographer_names.update(slot_names(row.get(field, "")))
+        if name in photographer_names:
+            shoot += 1
+        editor_names = slot_names(row.get("sde_1", "")) | slot_names(row.get("sde_2", ""))
+        if name in editor_names:
+            sde += 1
+    return shoot, sde, direct_assist
+
+
+# Per-month summary block columns: rank, Name, Shoot, SDE, Direct/Assist, Has Slot, Total
+SUMMARY_BLOCK_WIDTH = 7
+
+
 def build_summary_values(schedule_rows, members, layout):
-    columns = layout["sheet_layout"]["summary_section"]["columns"]
-    values = [columns]
+    """Tile one per-month frequency block under each month's matrix columns.
 
-    for name in members:
-        shoot = 0
-        sde = 0
-        direct_assist = 0
+    Each block lists every member's Shoot / SDE / Direct-Assist / Has Slot / Total
+    counted from that month's events only (mirrors the Q2 2026 reference sheet).
+    """
+    member_names = list(members)
+    if not schedule_rows:
+        return [["Shoot", "SDE", "Direct/Assist", "Has Slot"]]
 
-        for row in schedule_rows:
-            if name == row.get("director", ""):
-                direct_assist += 1
-            if name == row.get("assist", ""):
-                direct_assist += 1
-            if name == row.get("floor_runner", ""):
-                shoot += 1
-            photographer_names = set()
-            for field in (
-                "photographer_1",
-                "photographer_2",
-                "photographer_3",
-                "photographer_4",
-                "photographer_5",
-            ):
-                photographer_names.update(slot_names(row.get(field, "")))
-            if name in photographer_names:
-                shoot += 1
-            editor_names = slot_names(row.get("sde_1", "")) | slot_names(row.get("sde_2", ""))
-            if name in editor_names:
-                sde += 1
+    groups = month_column_groups(schedule_rows)  # (month, start_col, end_col_exclusive)
 
-        has_slot = "Yes" if (shoot + sde + direct_assist) > 0 else "No"
-        values.append([name, str(shoot), str(sde), str(direct_assist), has_slot])
+    # Align each block to its month's start column, shifting right only to avoid overlap.
+    placements = []
+    cursor = 1
+    for month, start_col, _end_col in groups:
+        col = max(start_col, cursor)
+        placements.append((month, col))
+        cursor = col + SUMMARY_BLOCK_WIDTH
 
-    return values
+    total_width = placements[-1][1] - 1 + SUMMARY_BLOCK_WIDTH
+    height = 1 + len(member_names)
+    grid = [["" for _ in range(total_width)] for _ in range(height)]
+
+    for month, col in placements:
+        base = col - 1  # 0-indexed grid column
+        grid[0][base + 2] = "Shoot"
+        grid[0][base + 3] = "SDE"
+        grid[0][base + 4] = "Direct/Assist"
+        grid[0][base + 5] = "Has Slot"
+
+        month_rows = [row for row in schedule_rows if month_key(row["date"]) == month]
+        for index, name in enumerate(member_names):
+            shoot, sde, direct_assist = count_member_role_frequency(name, month_rows)
+            total = shoot + sde + direct_assist
+            cells = grid[1 + index]
+            cells[base + 0] = str(index + 1)
+            cells[base + 1] = name
+            cells[base + 2] = str(shoot)
+            cells[base + 3] = str(sde)
+            cells[base + 4] = str(direct_assist)
+            cells[base + 5] = "Yes" if total > 0 else "No"
+            cells[base + 6] = str(total)
+
+    return grid
 
 
 def build_bad_dates_values(members, bad_dates, layout):
