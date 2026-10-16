@@ -479,6 +479,7 @@ def build_event_requirements(config):
         "greens_only": bool(config.get("greens_only", False)),
         "min_green_photographers": int(config.get("min_green_photographers", 0)),
         "min_yellow_photographers": int(config.get("min_yellow_photographers", 0)),
+        "target_yellow_photographers": int(config.get("target_yellow_photographers", 0)),
         "min_red_photographers": int(config.get("min_red_photographers", 0)),
         "max_red_photographers": int(config.get("max_red_photographers", photographers)),
         "director_edits": bool(config.get("director_edits", False)),
@@ -1706,6 +1707,13 @@ def pick_photographers(event, crew, used):
             lambda name: is_high_tier_eligible_yellow_photographer(name) and scorable(name),
             "a strong yellow photographer for a high tier event",
         )
+
+    # Soft target: more yellows where someone under the cap can take it, never forced.
+    top_up(
+        lambda: role_counts(photographers)["yellow"] < requirements["target_yellow_photographers"],
+        lambda name: members[name]["role"] == "yellow" and photographer_score(name, event) is not None,
+        "a target yellow photographer",
+    )
 
     while len(photographers) < required:
         chosen_roles = role_counts(photographers)

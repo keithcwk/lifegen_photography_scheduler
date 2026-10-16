@@ -167,6 +167,7 @@ Only Isaac and Aslvin require this guide accompaniment. The other reds (Josiah, 
 - Creative Team Meet editor slots should rotate across the quarter and should not keep relying on the same core yellow editors when other valid pairings are available
 - If a strong yellow editor has already covered earlier Creative Team Meet dates, later Creative Team Meet dates should prefer safe rotations that bring in guide-capable greens or lower-tier yellow editors
 - Creative Team Meet photographer slots should prioritize yellow and red opportunities and should ideally include a stable yellow anchor
+- Creative Team Meet / Advance never has 3 reds: at least 1 yellow photographer, ideally 2 (`target_yellow_photographers: 2`)
 - Yellow members who can edit should still receive monthly photographer opportunities where workable, and should not be locked into SDE-only usage
 - Green editors may also rotate into SDE slots on standard and low tier events to spread editor load and development
 - Sunday Service should ideally avoid having 2 green photographer slots unless needed for stability
@@ -786,6 +787,7 @@ events:
     editors: 2
     tier: low
     min_yellow_photographers: 1
+    target_yellow_photographers: 2
     max_red_photographers: 2
 
   LGY Christmas:
@@ -826,6 +828,7 @@ events:
     editors: 2
     tier: low
     min_yellow_photographers: 1
+    target_yellow_photographers: 2
     max_red_photographers: 2
 
   Lifegen Prayer:

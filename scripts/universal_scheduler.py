@@ -648,6 +648,7 @@ def _validate_event_types(event_types_data, issues):
             "sde_director",
             "min_green_photographers",
             "min_yellow_photographers",
+            "target_yellow_photographers",
             "min_red_photographers",
             "max_red_photographers",
             "extra_red_photographer",

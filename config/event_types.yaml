@@ -120,6 +120,7 @@ events:
     editors: 2
     tier: low
     min_yellow_photographers: 1
+    target_yellow_photographers: 2
     max_red_photographers: 2
 
   LGY Christmas:
@@ -160,6 +161,7 @@ events:
     editors: 2
     tier: low
     min_yellow_photographers: 1
+    target_yellow_photographers: 2
     max_red_photographers: 2
 
   Lifegen Prayer:
