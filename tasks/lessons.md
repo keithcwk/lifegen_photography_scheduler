@@ -38,3 +38,42 @@ Early on, rendering the CSV with collapsed whitespace caused off-by-one column r
 Always parse against the canonical header: event,date,unavailable,director,assist,
 photographer_1..5,floor_runner,sde_1,sde_2,shadow. Supervised reds appear as `Red + Guide`
 in a photographer cell and count as ONE slot whose lineup includes the green guide.
+
+## Refactor safely with a differential harness, not by reading
+Rewriting 3,273 lines of scheduling logic by eye is unverifiable. What worked: snapshot HEAD, run
+both versions over the same generated scenarios (current data + hundreds of randomised teams,
+events, bad dates and policies + a fake Google Sheets service that records every API call), and
+diff the recorded outputs. 1,313 cases, 0 unintended differences. Coverage of the scenarios was
+measured (92% of generate_schedule.py) so the untested branches were known and refactored
+mechanically rather than creatively.
+
+## A "harmless" string bug can corrupt the source of truth
+`replace_section_in_universal_text` re-emitted a closing fence it had already kept, so every single
+generate run appended two stray ``` lines to UNIVERSAL_SCHEDULER.md. Parsing tolerated it, so it
+went unnoticed while the file users are told to edit slowly rotted. Lesson: assert on the artefact,
+not just the exit code — `tests/test_scheduler.py` now fails if a run changes that file at all.
+
+## Comparison operators are policy
+`max_assignments_per_member_per_month: 3` was enforced as `count > 3`, i.e. a real ceiling of 4, and
+six people sat at 4 in August. The fairness penalty had been hiding it. When a config value names a
+limit, the gate must use `>=`, and the graceful-fallback rule still applies: relax the cap as a last
+resort instead of failing the run.
+
+## Read the real artefact before modelling it
+The Power Conference KL sheet showed the conference is rostered per session (8 sessions over 3 days),
+with an assist director every session, a floor runner on night sessions, and an SDE director who
+also edits. Two of those fields were about to be deleted as "dead config" because the scheduler never
+filled them. Ask for the real example before trusting the code as the spec.
+
+## Read hand-typed sheet cells as displayed text
+The Q4 tab's bad dates like `2/10` were auto-converted by the sheet's US locale, so the raw
+(UNFORMATTED) value was 10 Feb; `18 Oct` became a correct serial. Raw values cannot tell the two
+apart. Read human-typed blocks with `valueRenderOption=FORMATTED_VALUE`; keep raw serials only for
+cells the sheet itself formats as dates (the date row). Unparsed formats were silently dropped, so
+the generator scheduled people on known bad dates — log or test every format the sheet uses.
+
+## Measure before blaming a gate
+Yellow SDE directors outnumbered the sheet's, and the monthly cap looked like the cause. Exempting
+greens from the cap changed nothing; logging candidate scores showed the general fairness term
+(total serves x3, monthly x6, high-tier reserve penalties) reaching ~900 for busy greens and
+swamping editor rank. Log the top-N candidate scores for the slot before changing a rule.

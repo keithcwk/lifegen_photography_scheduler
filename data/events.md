@@ -43,9 +43,26 @@ Example
 18 Sep 2026 - Creative Team Meet
 20 Sep 2026 - Sunday Service
 27 Sep 2026 - Sunday Service
-02 Oct 2026 - Power Conference JB
-03 Oct 2026 - Power Conference JB
-04 Oct 2026 - Power Conference JB
+01 Oct 2026 - Power Conference JB | Bump In
+02 Oct 2026 - Power Conference JB | Session 1-3
+13 Oct 2026 - Lifegen Prayer
+15 Oct 2026 - Baptism Class
+23 Oct 2026 - Leaders Retreat
+24 Oct 2026 - Leaders Retreat
+25 Oct 2026 - Leaders Retreat
+25 Oct 2026 - Sunday Service
+07 Nov 2026 - Baptism
+10 Nov 2026 - Lifegen Prayer
+27 Nov 2026 - Creative Team Advance
+28 Nov 2026 - Creative Team Advance
+05 Dec 2026 - LGY Christmas
+08 Dec 2026 - Lifegen Prayer
+25 Dec 2026 - Christmas
+31 Dec 2026 - Watchnight Service
+11 Oct 2026 - Sunday Service
+18 Oct 2026 - Sunday Service
+01 Nov 2026 - Sunday Service
+08 Nov 2026 - Sunday Service
 
 ## Exclusions
 
@@ -56,8 +73,12 @@ Example
 04 Sep 2026 - Leaders Meet
 25 Sep 2026 - Creative Team Meet
 02 Oct 2026 - Leaders Meet
+04 Oct 2026 - Sunday Service
 06 Oct 2026 - Lifegen Prayer
-11 Oct 2026 - Sunday Service
-18 Oct 2026 - Sunday Service
-25 Oct 2026 - Sunday Service
 30 Oct 2026 - Creative Team Meet
+03 Nov 2026 - Lifegen Prayer
+06 Nov 2026 - Leaders Meet
+27 Nov 2026 - Creative Team Meet
+01 Dec 2026 - Lifegen Prayer
+04 Dec 2026 - Leaders Meet
+25 Dec 2026 - Creative Team Meet

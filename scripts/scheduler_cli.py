@@ -9,8 +9,7 @@ from generate_schedule import (
     DATE_FORMAT,
     EVENT_LINE_PATTERN,
     build_members,
-    load_event_types,
-    load_team,
+    load_yaml,
     parse_bad_dates,
     parse_event_file,
     quarter_key,
@@ -76,10 +75,21 @@ Example
 """
 
 
-def print_validation_error(error):
-    print("Universal scheduler needs attention:")
-    for issue in error.issues:
-        print(f"- {issue}")
+def ensure_direct_file_editing_allowed():
+    if UNIVERSAL_SCHEDULER_PATH.exists():
+        raise RuntimeError(
+            "UNIVERSAL_SCHEDULER.md is present. Edit that file and run compile-universal instead of mutating generated files directly."
+        )
+
+
+def guarded(action):
+    try:
+        return action()
+    except UniversalSchedulerValidationError as exc:
+        print("Universal scheduler needs attention:")
+        for issue in exc.issues:
+            print(f"- {issue}")
+        raise SystemExit(1)
 
 
 def validate_event_line(event_line):
@@ -90,13 +100,13 @@ def validate_event_line(event_line):
     date_str, event_name = match.groups()
     datetime.strptime(date_str, DATE_FORMAT)
 
-    event_types = load_event_types()
-    if event_name.strip() not in event_types:
+    event_name = event_name.strip()
+    if event_name not in load_yaml("config/event_types.yaml").get("events", {}):
         raise ValueError(
-            f"Unknown event type '{event_name.strip()}'. Add it to config/event_types.yaml first."
+            f"Unknown event type '{event_name}'. Add it to config/event_types.yaml first."
         )
 
-    return f"{date_str} - {event_name.strip()}"
+    return f"{date_str} - {event_name}"
 
 
 def write_events(event_lines, exclusions=None):
@@ -104,11 +114,13 @@ def write_events(event_lines, exclusions=None):
     if event_lines:
         content += "\n".join(event_lines) + "\n"
     if exclusions:
-        content += "\n## Exclusions\n"
-        content += "\n".join(exclusions) + "\n"
+        content += "\n## Exclusions\n" + "\n".join(exclusions) + "\n"
 
-    with open(EVENTS_FILE, "w") as f:
-        f.write(content)
+    EVENTS_FILE.write_text(content)
+
+
+def by_event_date(line):
+    return datetime.strptime(line.split(" - ", 1)[0], DATE_FORMAT)
 
 
 def add_event(event_line):
@@ -116,61 +128,43 @@ def add_event(event_line):
 
     normalized = validate_event_line(event_line)
     explicit_events, exclusions = parse_event_file()
-    existing = {
+    events = {
         f"{event['date'].strftime(DATE_FORMAT)} - {event['event']}" for event in explicit_events
     }
-    existing.add(normalized)
-
-    sorted_events = sorted(
-        existing,
-        key=lambda line: datetime.strptime(line.split(" - ", 1)[0], DATE_FORMAT),
+    events.add(normalized)
+    write_events(
+        sorted(events, key=by_event_date),
+        sorted(
+            {f"{event_date.strftime(DATE_FORMAT)} - {name}" for event_date, name in exclusions},
+            key=by_event_date,
+        ),
     )
-    sorted_exclusions = sorted(
-        {
-            f"{event_date.strftime(DATE_FORMAT)} - {event_name}"
-            for event_date, event_name in exclusions
-        },
-        key=lambda line: datetime.strptime(line.split(" - ", 1)[0], DATE_FORMAT),
-    )
-    write_events(sorted_events, sorted_exclusions)
 
     print(f"Added event: {normalized}")
 
 
-def quarter_sort_key(quarter_label):
-    year_str, quarter_str = quarter_label.split()
-    return int(year_str), int(quarter_str[1:])
-
-
 def write_bad_dates(bad_dates):
     grouped = defaultdict(lambda: defaultdict(list))
-
     for name, dates in bad_dates.items():
         for blocked_date in sorted(dates):
             grouped[quarter_key(blocked_date)][name].append(blocked_date)
 
     lines = [BAD_DATES_TEMPLATE.rstrip()]
-
-    for quarter in sorted(grouped, key=quarter_sort_key):
-        lines.extend(["", f"## {quarter}", ""])
-
+    for quarter in sorted(grouped):
+        lines += ["", f"## {quarter}", ""]
         for name in sorted(grouped[quarter]):
             lines.append(f"### {name}")
-            for blocked_date in grouped[quarter][name]:
-                lines.append(f"- {blocked_date.strftime(DATE_FORMAT)}")
+            lines += [f"- {blocked.strftime(DATE_FORMAT)}" for blocked in grouped[quarter][name]]
             lines.append("")
 
-    content = "\n".join(lines).rstrip() + "\n"
-    with open(BAD_DATES_FILE, "w") as f:
-        f.write(content)
+    BAD_DATES_FILE.write_text("\n".join(lines).rstrip() + "\n")
 
 
 def mark_unavailable(name, date_str):
     ensure_direct_file_editing_allowed()
 
     blocked_date = datetime.strptime(date_str, DATE_FORMAT).date()
-    known_members = build_members(load_team())
-    if name not in known_members:
+    if name not in build_members(load_yaml("data/team.yaml")):
         raise ValueError(f"Unknown member '{name}'. Update data/team.yaml first.")
 
     bad_dates = parse_bad_dates()
@@ -180,13 +174,6 @@ def mark_unavailable(name, date_str):
     print(f"{name} marked unavailable on {date_str}")
 
 
-def ensure_direct_file_editing_allowed():
-    if UNIVERSAL_SCHEDULER_PATH.exists():
-        raise RuntimeError(
-            "UNIVERSAL_SCHEDULER.md is present. Edit that file and run compile-universal instead of mutating generated files directly."
-        )
-
-
 def scheduler_python():
     if VENV_PYTHON.exists():
         return str(VENV_PYTHON)
@@ -194,12 +181,12 @@ def scheduler_python():
 
 
 def run_scheduler():
-    subprocess.run([scheduler_python(), "scripts/generate_schedule.py"], check=True)
+    subprocess.run([scheduler_python(), str(BASE / "scripts/generate_schedule.py")], check=True)
     print("Schedule regenerated.")
 
 
 def push_schedule(generate_first=True, values_only=False):
-    command = [scheduler_python(), "scripts/push_schedule_to_google_sheet.py"]
+    command = [scheduler_python(), str(BASE / "scripts/push_schedule_to_google_sheet.py")]
     if not generate_first:
         command.append("--skip-generate")
     if values_only:
@@ -213,95 +200,55 @@ def push_schedule(generate_first=True, values_only=False):
 
 
 def compile_universal():
-    try:
-        written_paths = compile_universal_scheduler()
-    except UniversalSchedulerValidationError as exc:
-        print_validation_error(exc)
-        raise SystemExit(1)
+    written_paths = guarded(compile_universal_scheduler)
     print("Compiled universal scheduler into:")
     for path in written_paths:
         print(path)
 
 
 def check_universal():
-    try:
-        validate_universal_scheduler()
-    except UniversalSchedulerValidationError as exc:
-        print_validation_error(exc)
-        raise SystemExit(1)
+    guarded(validate_universal_scheduler)
     print("Universal scheduler looks valid.")
 
 
-def export_universal():
-    path = write_universal_scheduler()
-    print(f"Universal scheduler exported to {path}")
-
-
-def write_template():
-    path = write_universal_scheduler_template()
-    print(f"Template written to {path}")
-
-
-def suggest_replacement(name, date):
-    print(f"Suggesting replacement for {name} on {date}")
-    print("Not implemented yet. Next step: read output/schedule.csv and score backups.")
+COMMANDS = {
+    "add-event": (["event"], lambda args: (add_event(args.event), run_scheduler())),
+    "mark-unavailable": (
+        ["name", "date"],
+        lambda args: (mark_unavailable(args.name, args.date), run_scheduler()),
+    ),
+    "generate": ([], lambda args: run_scheduler()),
+    "compile-universal": ([], lambda args: compile_universal()),
+    "check-universal": ([], lambda args: check_universal()),
+    "export-universal": (
+        [],
+        lambda args: print(f"Universal scheduler exported to {write_universal_scheduler()}"),
+    ),
+    "write-template": (
+        [],
+        lambda args: print(f"Template written to {write_universal_scheduler_template()}"),
+    ),
+    "push-sheet": ([], lambda args: push_schedule(generate_first=False)),
+    "generate-and-push": ([], lambda args: push_schedule(generate_first=True)),
+    "push-sheet-values": ([], lambda args: push_schedule(generate_first=False, values_only=True)),
+    "generate-and-push-values": ([], lambda args: push_schedule(generate_first=True, values_only=True)),
+}
 
 
 def main():
     parser = argparse.ArgumentParser()
-    sub = parser.add_subparsers(dest="command")
-
-    add_event_cmd = sub.add_parser("add-event")
-    add_event_cmd.add_argument("event")
-
-    unavailable_cmd = sub.add_parser("mark-unavailable")
-    unavailable_cmd.add_argument("name")
-    unavailable_cmd.add_argument("date")
-
-    replace_cmd = sub.add_parser("suggest-replacement")
-    replace_cmd.add_argument("name")
-    replace_cmd.add_argument("date")
-
-    sub.add_parser("generate")
-    sub.add_parser("compile-universal")
-    sub.add_parser("check-universal")
-    sub.add_parser("export-universal")
-    sub.add_parser("write-template")
-    sub.add_parser("push-sheet")
-    sub.add_parser("generate-and-push")
-    sub.add_parser("push-sheet-values")
-    sub.add_parser("generate-and-push-values")
+    subparsers = parser.add_subparsers(dest="command")
+    for name, (arguments, handler) in COMMANDS.items():
+        command_parser = subparsers.add_parser(name)
+        for argument in arguments:
+            command_parser.add_argument(argument)
+        command_parser.set_defaults(handler=handler)
 
     args = parser.parse_args()
-
-    if args.command == "add-event":
-        add_event(args.event)
-        run_scheduler()
-    elif args.command == "mark-unavailable":
-        mark_unavailable(args.name, args.date)
-        run_scheduler()
-    elif args.command == "suggest-replacement":
-        suggest_replacement(args.name, args.date)
-    elif args.command == "generate":
-        run_scheduler()
-    elif args.command == "compile-universal":
-        compile_universal()
-    elif args.command == "check-universal":
-        check_universal()
-    elif args.command == "export-universal":
-        export_universal()
-    elif args.command == "write-template":
-        write_template()
-    elif args.command == "push-sheet":
-        push_schedule(generate_first=False)
-    elif args.command == "generate-and-push":
-        push_schedule(generate_first=True)
-    elif args.command == "push-sheet-values":
-        push_schedule(generate_first=False, values_only=True)
-    elif args.command == "generate-and-push-values":
-        push_schedule(generate_first=True, values_only=True)
-    else:
+    if not args.command:
         parser.print_help()
+        return
+    args.handler(args)
 
 
 if __name__ == "__main__":

@@ -216,8 +216,11 @@ When generating a roster for an event:
 1. Determine staffing requirements from `config/event_types.yaml`
 2. Assign roles in the following order:
    - Director
+   - Assist director (always for a trainee director, plus any event configured with `assist: 1`)
+   - SDE director (events configured with `sde_director: 1`)
    - Editors
    - Photographers
+   - Floor runner (events configured with `floor_runner: 1`)
 
 Constraints:
 
@@ -275,7 +278,8 @@ Team member roster or role changes:
 Green ranking changes (`shoot_rank`, `direct_rank`, `editor_rank`):
 `data/team.yaml`
 
-Event staffing requirements or tiers:
+Event staffing requirements or tiers (including `sde_director`, `assist`, `floor_runner`,
+`greens_only`, `leaders_only`, `director_edits`, `extra_red_photographer`):
 `config/event_types.yaml`
 
 Recurring monthly event rules:
@@ -416,11 +420,14 @@ When the user gives a descriptive update:
 
 # Verification
 
-After modifying code, run lightweight verification.
+After modifying code, run the checks:
 
-Minimum:
+./.venv/bin/python tests/test_scheduler.py
 
-python3 -m py_compile scripts/generate_schedule.py
+They cover: the committed `output/schedule.csv` still being reproducible, per-event rule
+invariants, the starter template still generating, and `UNIVERSAL_SCHEDULER.md` surviving
+repeated runs and direct edits. Regenerate the schedule and commit the new CSV when a change is
+meant to alter it.
 
 If runtime verification cannot run due to missing dependencies such as `PyYAML`, state this clearly in the final response.
 

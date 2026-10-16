@@ -1,10 +1,9 @@
-from datetime import datetime
-from pathlib import Path
 import re
 import textwrap
+from datetime import datetime
+from pathlib import Path
 
 import yaml
-
 
 BASE = Path(__file__).resolve().parents[1]
 UNIVERSAL_SCHEDULER_PATH = BASE / "UNIVERSAL_SCHEDULER.md"
@@ -22,8 +21,11 @@ SECTION_SPECS = [
     ("config/scheduler_policy.yaml", "yaml"),
 ]
 SECTION_TARGETS = {path for path, _ in SECTION_SPECS}
+TEAM_FILE = "data/team.yaml"
 DATE_FORMAT = "%d %b %Y"
 EVENT_LINE_PATTERN = re.compile(r"(\d{1,2} [A-Za-z]{3} \d{4}) - (.+)")
+WEEKDAYS = {"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"}
+SESSION_SEPARATOR = "|"
 
 DOCUMENT_HEADER_LINES = [
     "# UNIVERSAL_SCHEDULER.md",
@@ -104,21 +106,51 @@ TEMPLATE_SECTION_CONTENTS = {
             direct_rank: 2
             editor_rank: 2
 
+          - name: Example Green 3
+            shoot_rank: 3
+            direct_rank: 3
+            editor_rank: 3
+
+          - name: Example Green 4
+            shoot_rank: 4
+            direct_rank: 4
+            editor_rank: 4
+
+          - name: Example Green 5
+            shoot_rank: 5
+            direct_rank: 5
+            editor_rank: 5
+
+          - name: Example Green 6
+            shoot_rank: 6
+            direct_rank: 6
+            editor_rank: 6
+
         yellows:
           - name: Example Yellow 1
-            shoot_rank: 3
+            shoot_rank: 7
             editor_rank: 1
             director_track: true
 
           - name: Example Yellow 2
-            shoot_rank: 4
+            shoot_rank: 8
             editor_rank: 2
+
+          - name: Example Yellow 3
+            shoot_rank: 9
+            editor_rank: 3
+
+          - name: Example Yellow 4
+            shoot_rank: 10
+            editor_rank: 4
 
         reds:
           - name: Example Red 1
-            shoot_rank: 5
+            shoot_rank: 11
           - name: Example Red 2
-            shoot_rank: 6
+            shoot_rank: 12
+          - name: Example Red 3
+            shoot_rank: 13
 
         shadows: []
         """
@@ -168,27 +200,30 @@ TEMPLATE_SECTION_CONTENTS = {
         events:
           Sunday Service:
             photographers: 4
-            directors: 1
             editors: 2
+            sde_director: 1
             tier: standard
+            min_green_photographers: 1
 
           Prayer Meeting:
             photographers: 2
-            directors: 1
             editors: 1
             tier: low
 
           Leaders Meeting:
             photographers: 2
-            directors: 1
             editors: 1
             tier: low
 
           Special Service:
             photographers: 4
-            directors: 1
             editors: 2
+            assist: 1
+            sde_director: 1
+            floor_runner: 1
             tier: high
+            min_green_photographers: 2
+            max_red_photographers: 0
         """
     ),
     "config/recurring_events.yaml": textwrap.dedent(
@@ -212,74 +247,6 @@ TEMPLATE_SECTION_CONTENTS = {
           months_after_last_explicit_event: 1
         """
     ),
-    "config/google_sheets_styles.yaml": textwrap.dedent(
-        """\
-        google_sheets_styles:
-          font_family: Montserrat
-          pivot_column:
-            background_color: "#F3F4F6"
-          header_rows:
-            bold: true
-          borders:
-            color: "#D0D7DE"
-          month_palette:
-            colors:
-              - "#D9EAD3"
-              - "#D0E0E3"
-              - "#FCE5CD"
-              - "#EAD1DC"
-        """
-    ),
-    "config/google_sheets_layout.yaml": textwrap.dedent(
-        """\
-        sheet_layout:
-          event_matrix:
-            pivot_column_label: Role
-            event_name_row: 1
-            event_date_row: 2
-            unavailable_row: 3
-          role_rows:
-            - Director
-            - Assist
-            - Photographer 1
-            - Photographer 2
-            - Photographer 3
-            - Photographer 4
-            - Photographer 5
-            - Floor runner
-            - SDE 1
-            - SDE 2
-          summary_section:
-            title: Summary
-            headers:
-              - Name
-              - Shoot
-              - SDE
-              - Direct/Assist
-              - Has Slot
-          bad_dates_section:
-            title: Bad Dates
-            headers:
-              - Name
-              - Bad Dates
-          canonical_scheduler_format:
-            columns:
-              - event
-              - date
-              - unavailable
-              - director
-              - assist
-              - photographer_1
-              - photographer_2
-              - photographer_3
-              - photographer_4
-              - photographer_5
-              - floor_runner
-              - sde_1
-              - sde_2
-              - shadow
-        """
-    ),
     "config/google_sheets_sync.yaml": textwrap.dedent(
         """\
         # Replace these values before pushing to Google Sheets.
@@ -297,7 +264,7 @@ TEMPLATE_SECTION_CONTENTS = {
           max_assignments_per_member_per_month: 2
           max_director_track_directs_per_month: 1
           max_red_assignments_per_month: 2
-          max_high_tier_yellow_shoot_rank: 8
+          max_high_tier_yellow_shoot_rank: 10
           max_high_tier_yellow_editor_rank: 4
           high_tier_reserve_window_days: 14
 
@@ -329,8 +296,14 @@ TEMPLATE_SECTION_CONTENTS = {
           required_guides_for:
             - Example Red 1
 
+        event_roles:
+          balanced_service: Sunday Service
+          mid_tier_editor: Prayer Meeting
+          leaders_meet: Leaders Meeting
+          service_marker: service
+
         special_rules:
-          use_scoring_only_after_hard_constraints: true
+          frequency_exempt_events: []
         """
     ),
 }
@@ -339,37 +312,65 @@ TEMPLATE_SECTION_CONTENTS = {
 class UniversalSchedulerValidationError(ValueError):
     def __init__(self, issues):
         self.issues = issues
-        message = "Universal scheduler validation failed:\n- " + "\n- ".join(issues)
-        super().__init__(message)
+        super().__init__("Universal scheduler validation failed:\n- " + "\n- ".join(issues))
+
+
+def iter_active_lines(text):
+    """Yield (line number, stripped line), skipping HTML comment blocks."""
+    in_comment_block = False
+
+    for line_number, raw_line in enumerate(text.splitlines(), start=1):
+        line = raw_line.strip()
+        if in_comment_block:
+            in_comment_block = "-->" not in line
+        elif "<!--" in line:
+            in_comment_block = "-->" not in line
+        else:
+            yield line_number, line
+
+
+def event_type(event_name):
+    """'Power Conference KL | Night 1' is a session of the 'Power Conference KL' event type."""
+    return event_name.split(SESSION_SEPARATOR, 1)[0].strip()
+
+
+def normalize_quarter(label):
+    match = re.fullmatch(r"(\d{4})\s+Q([1-4])|Q([1-4])\s+(\d{4})", label.strip(), re.IGNORECASE)
+    if not match:
+        raise ValueError(f"Invalid quarter heading '{label.strip()}'. Use '2026 Q2' or 'Q2 2026'.")
+
+    year, quarter, flipped_quarter, flipped_year = match.groups()
+    return f"{int(year or flipped_year)} Q{int(quarter or flipped_quarter)}"
+
+
+def quarter_key(date_value):
+    return f"{date_value.year} Q{(date_value.month - 1) // 3 + 1}"
+
+
+# --------------------------------------------------------------------------- document building
 
 
 def _build_document(section_texts, header_lines):
     lines = list(header_lines)
-
     for target, language in SECTION_SPECS:
-        content = section_texts[target].rstrip() + "\n"
-        lines.extend(
-            [
-                "",
-                f"## {target}",
-                f"```{language}",
-                content.rstrip(),
-                "```",
-            ]
-        )
-
+        lines += ["", f"## {target}", f"```{language}", section_texts[target].rstrip(), "```"]
     return "\n".join(lines) + "\n"
 
 
 def build_universal_scheduler_text():
-    section_texts = {}
-    for target, _ in SECTION_SPECS:
-        section_texts[target] = (BASE / target).read_text().rstrip() + "\n"
-    return _build_document(section_texts, DOCUMENT_HEADER_LINES)
+    return _build_document(
+        {target: (BASE / target).read_text() for target, _ in SECTION_SPECS},
+        DOCUMENT_HEADER_LINES,
+    )
 
 
 def build_universal_scheduler_template_text():
-    return _build_document(TEMPLATE_SECTION_CONTENTS, TEMPLATE_HEADER_LINES)
+    # Styles and layout carry no ministry-specific data, so the template reuses the live files
+    # instead of a copy that can drift out of schema.
+    sections = dict(TEMPLATE_SECTION_CONTENTS)
+    for target in ("config/google_sheets_styles.yaml", "config/google_sheets_layout.yaml"):
+        sections[target] = (BASE / target).read_text()
+    return _build_document(sections, TEMPLATE_HEADER_LINES)
 
 
 def write_universal_scheduler(path=UNIVERSAL_SCHEDULER_PATH):
@@ -384,24 +385,105 @@ def write_universal_scheduler_template(path=UNIVERSAL_TEMPLATE_PATH):
 
 def replace_section_in_universal_text(document_text, target, language, content):
     pattern = re.compile(
-        rf"(^## {re.escape(target)}\n(?:\n)*```{re.escape(language)}\n)(.*?)(\n```\n?)",
+        rf"(^## {re.escape(target)}\n\n*```{re.escape(language)}\n)(.*?)(\n```\n?)",
         re.DOTALL | re.MULTILINE,
     )
     match = pattern.search(document_text)
     if not match:
         raise ValueError(f"Could not find section '{target}' in {UNIVERSAL_SCHEDULER_PATH}.")
 
-    normalized_content = content.rstrip() + "\n"
-    return document_text[: match.start()] + match.group(1) + normalized_content + "```" + document_text[match.end() - len(match.group(3)) :]
+    closing_fence = document_text[match.end() - len(match.group(3)) :]
+    return document_text[: match.start()] + match.group(1) + content.rstrip() + closing_fence
 
+
+def parse_universal_scheduler(path=UNIVERSAL_SCHEDULER_PATH):
+    if not path.exists():
+        raise FileNotFoundError(f"Universal scheduler file not found: {path}")
+
+    sections = {}
+    current_target = None
+    in_code_block = False
+    buffer = []
+
+    for line in path.read_text().splitlines():
+        if current_target is not None and line.startswith("```"):
+            if not in_code_block:
+                in_code_block = True
+                continue
+
+            sections[current_target] = "\n".join(buffer).rstrip() + "\n"
+            current_target = None
+            in_code_block = False
+            buffer = []
+        elif current_target is not None and in_code_block:
+            buffer.append(line)
+        elif line.startswith("## "):
+            if current_target is not None:
+                raise ValueError(f"Section '{current_target}' is missing a closing code fence.")
+
+            heading = line[3:].strip()
+            current_target = heading if heading in SECTION_TARGETS else None
+            buffer = []
+
+    if current_target is not None:
+        raise ValueError(f"Section '{current_target}' is missing a closing code fence.")
+
+    missing_sections = sorted(SECTION_TARGETS - set(sections))
+    if missing_sections:
+        raise ValueError("Universal scheduler file is missing sections: " + ", ".join(missing_sections))
+
+    return sections
+
+
+def sync_rulebook_with_team_sections(sections):
+    """Rewrite the rulebook's roster lists from the team section, and return it."""
+    team_data = yaml.safe_load(sections["data/team.yaml"]) or {}
+    yellows = sorted(
+        team_data.get("yellows", []),
+        key=lambda person: (int(person.get("editor_rank", 999)), str(person.get("name", ""))),
+    )
+    reds = [
+        name
+        for name in (
+            str(person.get("name", "") if isinstance(person, dict) else person).strip()
+            for person in team_data.get("reds", [])
+        )
+        if name
+    ]
+
+    blocks = (
+        (
+            r"(## Yellows \(Editor Rank\)\n\n)(.*?)(\n\nDirector Development Track:)",
+            "\n".join(f"{index}. {person['name']}" for index, person in enumerate(yellows, start=1))
+            or "No yellow members defined.",
+        ),
+        (
+            r"(Director Development Track:\n\n)(.*?)(\n\nDirector-track members may)",
+            "\n".join(f"- {person['name']}" for person in yellows if person.get("director_track")) or "- None",
+        ),
+        (r"(## Reds\n\n)(.*?)(\n\n## Safety Rule)", "\n".join(reds) or "None"),
+    )
+
+    rulebook = sections["rules/rulebook.md"]
+    for pattern, block in blocks:
+        rulebook = re.sub(
+            pattern,
+            lambda match, block=block: match.group(1) + block + match.group(3),
+            rulebook,
+            flags=re.DOTALL,
+        )
+    return rulebook.rstrip() + "\n"
 
 
 def sync_sections_if_needed(path=UNIVERSAL_SCHEDULER_PATH):
+    """Keep the universal file and the generated repo files in step; the newer copy wins."""
     if not path.exists():
         return []
 
     sections = parse_universal_scheduler(path)
     universal_text = path.read_text()
+    # Snapshot once: writing the universal file below must not make other edited files look stale.
+    universal_mtime = path.stat().st_mtime
     updated_paths = []
 
     for target, language in SECTION_SPECS:
@@ -417,36 +499,23 @@ def sync_sections_if_needed(path=UNIVERSAL_SCHEDULER_PATH):
         if universal_content == file_content:
             continue
 
-        if output_path.stat().st_mtime > path.stat().st_mtime:
-            universal_text = replace_section_in_universal_text(
-                universal_text,
-                target,
-                language,
-                file_content,
-            )
+        if output_path.stat().st_mtime > universal_mtime:
+            universal_text = replace_section_in_universal_text(universal_text, target, language, file_content)
             path.write_text(universal_text)
-            sections[target] = file_content
             if path not in updated_paths:
                 updated_paths.append(path)
         else:
             output_path.write_text(universal_content)
             updated_paths.append(output_path)
 
-    sections = parse_universal_scheduler(path)
-    synced_sections = sync_rulebook_with_team_sections(sections)
-    synced_rulebook = synced_sections["rules/rulebook.md"]
-    current_rulebook_path = BASE / "rules/rulebook.md"
-    current_rulebook = current_rulebook_path.read_text().rstrip() + "\n" if current_rulebook_path.exists() else ""
-    if synced_rulebook != current_rulebook:
-        current_rulebook_path.write_text(synced_rulebook)
-        updated_paths.append(current_rulebook_path)
+    rulebook = sync_rulebook_with_team_sections(parse_universal_scheduler(path))
+    rulebook_path = BASE / "rules/rulebook.md"
+    current_rulebook = rulebook_path.read_text().rstrip() + "\n" if rulebook_path.exists() else ""
+    if rulebook != current_rulebook:
+        rulebook_path.write_text(rulebook)
+        updated_paths.append(rulebook_path)
 
-    refreshed_universal = replace_section_in_universal_text(
-        path.read_text(),
-        "rules/rulebook.md",
-        "md",
-        synced_rulebook,
-    )
+    refreshed_universal = replace_section_in_universal_text(path.read_text(), "rules/rulebook.md", "md", rulebook)
     if refreshed_universal != path.read_text():
         path.write_text(refreshed_universal)
         if path not in updated_paths:
@@ -454,74 +523,8 @@ def sync_sections_if_needed(path=UNIVERSAL_SCHEDULER_PATH):
 
     return updated_paths
 
-def parse_universal_scheduler(path=UNIVERSAL_SCHEDULER_PATH):
-    if not path.exists():
-        raise FileNotFoundError(f"Universal scheduler file not found: {path}")
 
-    lines = path.read_text().splitlines()
-    sections = {}
-    current_target = None
-    in_code_block = False
-    buffer = []
-
-    for line in lines:
-        if current_target is not None and line.startswith("```"):
-            if not in_code_block:
-                in_code_block = True
-                continue
-
-            sections[current_target] = "\n".join(buffer).rstrip() + "\n"
-            current_target = None
-            in_code_block = False
-            buffer = []
-            continue
-
-        if current_target is not None and in_code_block:
-            buffer.append(line)
-            continue
-
-        if line.startswith("## "):
-            if current_target is not None:
-                raise ValueError(f"Section '{current_target}' is missing a closing code fence.")
-
-            heading = line[3:].strip()
-            current_target = heading if heading in SECTION_TARGETS else None
-            in_code_block = False
-            buffer = []
-            continue
-
-        if current_target is None:
-            continue
-
-    if current_target is not None:
-        raise ValueError(f"Section '{current_target}' is missing a closing code fence.")
-
-    missing_sections = sorted(SECTION_TARGETS - set(sections))
-    if missing_sections:
-        raise ValueError(
-            "Universal scheduler file is missing sections: " + ", ".join(missing_sections)
-        )
-
-    return sections
-
-
-def _iter_active_lines(text):
-    in_comment_block = False
-
-    for line_number, raw_line in enumerate(text.splitlines(), start=1):
-        line = raw_line.strip()
-
-        if in_comment_block:
-            if "-->" in line:
-                in_comment_block = False
-            continue
-
-        if "<!--" in line:
-            if "-->" not in line:
-                in_comment_block = True
-            continue
-
-        yield line_number, line
+# --------------------------------------------------------------------------- validation
 
 
 def _load_yaml_section(target, text, issues):
@@ -532,521 +535,370 @@ def _load_yaml_section(target, text, issues):
         return None
 
 
-def sync_rulebook_with_team_sections(sections):
-    team_data = yaml.safe_load(sections["data/team.yaml"]) or {}
-    yellows = sorted(
-        team_data.get("yellows", []),
-        key=lambda person: (int(person.get("editor_rank", 999)), str(person.get("name", ""))),
-    )
-    director_track = [
-        person["name"]
-        for person in yellows
-        if bool(person.get("director_track", False))
-    ]
-    reds = []
-    for person in team_data.get("reds", []):
-        if isinstance(person, dict):
-            name = str(person.get("name", "")).strip()
-        else:
-            name = str(person).strip()
-        if name:
-            reds.append(name)
-
-    rulebook = sections["rules/rulebook.md"]
-    yellow_block = "\n".join(
-        f"{index}. {person['name']}" for index, person in enumerate(yellows, start=1)
-    ) or "No yellow members defined."
-    director_track_block = "\n".join(f"- {name}" for name in director_track) or "- None"
-    reds_block = "\n".join(reds) or "None"
-
-    rulebook = re.sub(
-        r"(## Yellows \(Editor Rank\)\n\n)(.*?)(\n\nDirector Development Track:)",
-        lambda match: match.group(1) + yellow_block + match.group(3),
-        rulebook,
-        flags=re.DOTALL,
-    )
-    rulebook = re.sub(
-        r"(Director Development Track:\n\n)(.*?)(\n\nDirector-track members may)",
-        lambda match: match.group(1) + director_track_block + match.group(3),
-        rulebook,
-        flags=re.DOTALL,
-    )
-    rulebook = re.sub(
-        r"(## Reds\n\n)(.*?)(\n\n## Safety Rule)",
-        lambda match: match.group(1) + reds_block + match.group(3),
-        rulebook,
-        flags=re.DOTALL,
-    )
-
-    sections["rules/rulebook.md"] = rulebook.rstrip() + "\n"
-    return sections
-
 def _check_positive_int(value, target, field_name, issues, member_name=None):
     if not isinstance(value, int) or value < 1:
         owner = f" for '{member_name}'" if member_name else ""
         issues.append(f"{target}: '{field_name}' must be a positive integer{owner}.")
 
 
-def _normalize_quarter(label):
-    label = label.strip()
-    patterns = (
-        r"(?i)^(\d{4})\s+Q([1-4])$",
-        r"(?i)^Q([1-4])\s+(\d{4})$",
-    )
+def _validate_team(team_data, issues):
+    """Collect every member name, flagging malformed entries as it goes."""
+    member_names = set()
+    if not isinstance(team_data, dict):
+        issues.append(f"{TEAM_FILE}: top level must be a YAML map.")
+        return member_names
 
-    for pattern in patterns:
-        match = re.match(pattern, label)
-        if not match:
+    for key in ("greens", "yellows", "reds", "shadows"):
+        if key not in team_data:
+            issues.append(f"{TEAM_FILE}: missing top-level key '{key}'.")
+
+    def add_name(name):
+        if name in member_names:
+            issues.append(f"{TEAM_FILE}: duplicate member name '{name}'.")
+        member_names.add(name)
+
+    def entries(group):
+        people = team_data.get(group, [])
+        if not isinstance(people, list):
+            issues.append(f"{TEAM_FILE}: '{group}' must be a list.")
+            return []
+        return list(enumerate(people, start=1))
+
+    for group, shape, required_ranks, optional_ranks in (
+        ("greens", "a map with name and ranks", ("shoot_rank", "direct_rank", "editor_rank"), ()),
+        ("yellows", "a map with a name", ("editor_rank",), ("shoot_rank", "direct_rank")),
+    ):
+        for index, person in entries(group):
+            if not isinstance(person, dict):
+                issues.append(f"{TEAM_FILE}: {group} entry #{index} must be {shape}.")
+                continue
+
+            name = str(person.get("name", "")).strip()
+            if not name:
+                issues.append(f"{TEAM_FILE}: {group} entry #{index} is missing 'name'.")
+                continue
+
+            add_name(name)
+            for field in required_ranks:
+                _check_positive_int(person.get(field), TEAM_FILE, field, issues, name)
+            for field in optional_ranks:
+                if field in person:
+                    _check_positive_int(person.get(field), TEAM_FILE, field, issues, name)
+            flags = ("guide", "leader", "leaders", "can_guide")
+            if group == "yellows":
+                flags = ("director_track", *flags)
+            for field in flags:
+                if field in person and not isinstance(person[field], bool):
+                    issues.append(f"{TEAM_FILE}: '{field}' must be true or false for '{name}'.")
+
+    for index, person in entries("reds"):
+        if isinstance(person, dict):
+            name = str(person.get("name", "")).strip()
+            if not name:
+                issues.append(f"{TEAM_FILE}: reds entry #{index} is missing 'name'.")
+                continue
+            if "shoot_rank" in person:
+                _check_positive_int(person["shoot_rank"], TEAM_FILE, "shoot_rank", issues, name)
+        elif isinstance(person, str) and person.strip():
+            name = person.strip()
+        else:
+            issues.append(
+                f"{TEAM_FILE}: reds entry #{index} must be a member name string or a map with 'name'."
+            )
+            continue
+        add_name(name)
+
+    for index, person in entries("shadows"):
+        name = str(person.get("name", "") if isinstance(person, dict) else person).strip()
+        if not name:
+            issues.append(
+                f"{TEAM_FILE}: shadows entry #{index} must be a member name string or a map with 'name'."
+            )
+            continue
+        add_name(name)
+
+    return member_names
+
+
+def _validate_event_types(event_types_data, issues):
+    target = "config/event_types.yaml"
+    event_names = set()
+    if not isinstance(event_types_data, dict):
+        issues.append(f"{target}: top level must be a YAML map.")
+        return event_names
+
+    events = event_types_data.get("events")
+    if not isinstance(events, dict) or not events:
+        issues.append(f"{target}: add an 'events' map with at least one event type.")
+        return event_names
+
+    for event_name, spec in events.items():
+        event_names.add(str(event_name).strip())
+        if not isinstance(spec, dict):
+            issues.append(f"{target}: '{event_name}' must map to a settings block.")
             continue
 
-        if pattern.startswith("(?i)^(\\d{4})"):
-            year, quarter = match.groups()
-        else:
-            quarter, year = match.groups()
-        return f"{int(year)} Q{int(quarter)}"
+        for field, minimum in (("photographers", 1), ("editors", 0)):
+            if not isinstance(spec.get(field), int) or spec[field] < minimum:
+                issues.append(f"{target}: '{field}' must be an integer >= {minimum} for '{event_name}'.")
 
-    raise ValueError(f"Use '2026 Q2' or 'Q2 2026', not '{label}'.")
+        for field in (
+            "assist",
+            "floor_runner",
+            "sde_director",
+            "min_green_photographers",
+            "min_yellow_photographers",
+            "min_red_photographers",
+            "max_red_photographers",
+            "extra_red_photographer",
+        ):
+            if field in spec and (not isinstance(spec[field], int) or spec[field] < 0):
+                issues.append(f"{target}: '{field}' must be an integer >= 0 for '{event_name}'.")
+
+        for field in ("leaders_only", "director_edits"):
+            if field in spec and not isinstance(spec[field], bool):
+                issues.append(f"{target}: '{field}' must be true or false for '{event_name}'.")
+        if str(spec.get("tier", "")).strip().lower() not in {"low", "standard", "high"}:
+            issues.append(
+                f"{target}: '{event_name}' has invalid tier '{spec.get('tier')}'. Use low, standard, or high."
+            )
+
+    return event_names
 
 
-def _quarter_key(date_value):
-    quarter = ((date_value.month - 1) // 3) + 1
-    return f"{date_value.year} Q{quarter}"
+def _validate_recurring_events(recurring_data, event_names, issues):
+    target = "config/recurring_events.yaml"
+    if not isinstance(recurring_data, dict):
+        issues.append(f"{target}: top level must be a YAML map.")
+        return
 
+    rules = recurring_data.get("recurring_events", [])
+    if rules and not isinstance(rules, list):
+        issues.append(f"{target}: 'recurring_events' must be a list.")
+    elif isinstance(rules, list):
+        for index, rule in enumerate(rules, start=1):
+            if not isinstance(rule, dict):
+                issues.append(f"{target}: rule #{index} must be a YAML map.")
+                continue
 
-def validate_universal_scheduler_sections(sections):
-    issues = []
-
-    team_data = _load_yaml_section("data/team.yaml", sections["data/team.yaml"], issues)
-    event_types_data = _load_yaml_section(
-        "config/event_types.yaml", sections["config/event_types.yaml"], issues
-    )
-    recurring_data = _load_yaml_section(
-        "config/recurring_events.yaml", sections["config/recurring_events.yaml"], issues
-    )
-    _load_yaml_section(
-        "config/google_sheets_styles.yaml", sections["config/google_sheets_styles.yaml"], issues
-    )
-    _load_yaml_section(
-        "config/google_sheets_layout.yaml", sections["config/google_sheets_layout.yaml"], issues
-    )
-    sync_data = _load_yaml_section(
-        "config/google_sheets_sync.yaml", sections["config/google_sheets_sync.yaml"], issues
-    )
-    scheduler_policy_data = _load_yaml_section(
-        "config/scheduler_policy.yaml", sections["config/scheduler_policy.yaml"], issues
-    )
-
-    member_names = set()
-    if isinstance(team_data, dict):
-        for key in ("greens", "yellows", "reds", "shadows"):
-            if key not in team_data:
-                issues.append(f"data/team.yaml: missing top-level key '{key}'.")
-
-        greens = team_data.get("greens", [])
-        yellows = team_data.get("yellows", [])
-        reds = team_data.get("reds", [])
-        shadows = team_data.get("shadows", [])
-
-        if not isinstance(greens, list):
-            issues.append("data/team.yaml: 'greens' must be a list.")
-        else:
-            for index, person in enumerate(greens, start=1):
-                if not isinstance(person, dict):
-                    issues.append(f"data/team.yaml: greens entry #{index} must be a map with name and ranks.")
-                    continue
-                name = str(person.get("name", "")).strip()
-                if not name:
-                    issues.append(f"data/team.yaml: greens entry #{index} is missing 'name'.")
-                    continue
-                if name in member_names:
-                    issues.append(f"data/team.yaml: duplicate member name '{name}'.")
-                member_names.add(name)
-                _check_positive_int(person.get("shoot_rank"), "data/team.yaml", "shoot_rank", issues, name)
-                _check_positive_int(person.get("direct_rank"), "data/team.yaml", "direct_rank", issues, name)
-                _check_positive_int(person.get("editor_rank"), "data/team.yaml", "editor_rank", issues, name)
-                for bool_field in ("guide", "leader", "leaders", "can_guide"):
-                    if bool_field in person and not isinstance(person.get(bool_field), bool):
-                        issues.append(f"data/team.yaml: '{bool_field}' must be true or false for '{name}'.")
-
-        if not isinstance(yellows, list):
-            issues.append("data/team.yaml: 'yellows' must be a list.")
-        else:
-            for index, person in enumerate(yellows, start=1):
-                if not isinstance(person, dict):
-                    issues.append(f"data/team.yaml: yellows entry #{index} must be a map with a name.")
-                    continue
-                name = str(person.get("name", "")).strip()
-                if not name:
-                    issues.append(f"data/team.yaml: yellows entry #{index} is missing 'name'.")
-                    continue
-                if name in member_names:
-                    issues.append(f"data/team.yaml: duplicate member name '{name}'.")
-                member_names.add(name)
-                _check_positive_int(person.get("editor_rank"), "data/team.yaml", "editor_rank", issues, name)
-                if "shoot_rank" in person:
-                    _check_positive_int(person.get("shoot_rank"), "data/team.yaml", "shoot_rank", issues, name)
-                if "direct_rank" in person:
-                    _check_positive_int(person.get("direct_rank"), "data/team.yaml", "direct_rank", issues, name)
-                if "director_track" in person and not isinstance(person.get("director_track"), bool):
-                    issues.append(f"data/team.yaml: 'director_track' must be true or false for '{name}'.")
-                for bool_field in ("guide", "leader", "leaders", "can_guide"):
-                    if bool_field in person and not isinstance(person.get(bool_field), bool):
-                        issues.append(f"data/team.yaml: '{bool_field}' must be true or false for '{name}'.")
-
-        if not isinstance(reds, list):
-            issues.append("data/team.yaml: 'reds' must be a list.")
-        else:
-            for index, person in enumerate(reds, start=1):
-                if isinstance(person, dict):
-                    normalized_name = str(person.get("name", "")).strip()
-                    if not normalized_name:
-                        issues.append(f"data/team.yaml: reds entry #{index} is missing 'name'.")
-                        continue
-                    if "shoot_rank" in person:
-                        _check_positive_int(
-                            person.get("shoot_rank"),
-                            "data/team.yaml",
-                            "shoot_rank",
-                            issues,
-                            normalized_name,
-                        )
-                elif isinstance(person, str) and person.strip():
-                    normalized_name = person.strip()
-                else:
-                    issues.append(
-                        f"data/team.yaml: reds entry #{index} must be a member name string or a map with 'name'."
-                    )
-                    continue
-                if normalized_name in member_names:
-                    issues.append(f"data/team.yaml: duplicate member name '{normalized_name}'.")
-                member_names.add(normalized_name)
-        if not isinstance(shadows, list):
-            issues.append("data/team.yaml: 'shadows' must be a list.")
-        else:
-            for index, person in enumerate(shadows, start=1):
-                if isinstance(person, dict):
-                    normalized_name = str(person.get("name", "")).strip()
-                else:
-                    normalized_name = str(person).strip()
-                if not normalized_name:
-                    issues.append(
-                        f"data/team.yaml: shadows entry #{index} must be a member name string or a map with 'name'."
-                    )
-                    continue
-                if normalized_name in member_names:
-                    issues.append(f"data/team.yaml: duplicate member name '{normalized_name}'.")
-                member_names.add(normalized_name)
-    else:
-        issues.append("data/team.yaml: top level must be a YAML map.")
-
-    event_names = set()
-    if isinstance(event_types_data, dict):
-        events_map = event_types_data.get("events")
-        if not isinstance(events_map, dict) or not events_map:
-            issues.append("config/event_types.yaml: add an 'events' map with at least one event type.")
-        else:
-            for event_name, spec in events_map.items():
-                event_names.add(str(event_name).strip())
-                if not isinstance(spec, dict):
-                    issues.append(f"config/event_types.yaml: '{event_name}' must map to a settings block.")
-                    continue
-                for field in ("photographers", "directors", "editors"):
-                    value = spec.get(field)
-                    minimum = 1
-                    if field == "directors":
-                        value = spec.get("directors", spec.get("director"))
-                    if field == "editors":
-                        minimum = 0
-                    if not isinstance(value, int) or value < minimum:
-                        issues.append(
-                            f"config/event_types.yaml: '{field}' must be an integer >= {minimum} for '{event_name}'."
-                        )
-                for optional_int_field in (
-                    "assist",
-                    "floor_runner",
-                    "shadow",
-                    "min_green_photographers",
-                    "min_yellow_photographers",
-                    "min_red_photographers",
-                    "max_red_photographers",
-                ):
-                    if optional_int_field in spec and (
-                        not isinstance(spec.get(optional_int_field), int)
-                        or spec.get(optional_int_field) < 0
-                    ):
-                        issues.append(
-                            f"config/event_types.yaml: '{optional_int_field}' must be an integer >= 0 for '{event_name}'."
-                        )
-                if "leaders_only" in spec and not isinstance(spec.get("leaders_only"), bool):
-                    issues.append(
-                        f"config/event_types.yaml: 'leaders_only' must be true or false for '{event_name}'."
-                    )
-                tier = str(spec.get("tier", "")).strip().lower()
-                if tier not in {"low", "standard", "high"}:
-                    issues.append(
-                        f"config/event_types.yaml: '{event_name}' has invalid tier '{spec.get('tier')}'. Use low, standard, or high."
-                    )
-    else:
-        issues.append("config/event_types.yaml: top level must be a YAML map.")
-
-    if isinstance(recurring_data, dict):
-        recurring_events = recurring_data.get("recurring_events", [])
-        if recurring_events and not isinstance(recurring_events, list):
-            issues.append("config/recurring_events.yaml: 'recurring_events' must be a list.")
-        elif isinstance(recurring_events, list):
-            for index, rule in enumerate(recurring_events, start=1):
-                if not isinstance(rule, dict):
-                    issues.append(f"config/recurring_events.yaml: rule #{index} must be a YAML map.")
-                    continue
-                event_name = str(rule.get("event", "")).strip()
-                if not event_name:
-                    issues.append(f"config/recurring_events.yaml: rule #{index} is missing 'event'.")
-                elif event_names and event_name not in event_names:
-                    issues.append(
-                        f"config/recurring_events.yaml: recurring event '{event_name}' is not defined in config/event_types.yaml."
-                    )
-                frequency = str(rule.get("frequency", "")).strip().lower()
-                if frequency not in {"weekly", "monthly"}:
-                    issues.append(
-                        f"config/recurring_events.yaml: rule #{index} has invalid frequency '{rule.get('frequency')}'."
-                    )
-                weekday = str(rule.get("weekday", "")).strip().lower()
-                if weekday not in {
-                    "monday",
-                    "tuesday",
-                    "wednesday",
-                    "thursday",
-                    "friday",
-                    "saturday",
-                    "sunday",
-                }:
-                    issues.append(f"config/recurring_events.yaml: rule #{index} has invalid weekday '{rule.get('weekday')}'.")
-                if frequency == "monthly":
-                    occurrence = str(rule.get("occurrence", "")).strip().lower()
-                    if occurrence not in {"first", "last"}:
-                        issues.append(
-                            f"config/recurring_events.yaml: monthly rule #{index} must use occurrence 'first' or 'last'."
-                        )
-        generation_window = recurring_data.get("generation_window", {})
-        if generation_window and not isinstance(generation_window, dict):
-            issues.append("config/recurring_events.yaml: 'generation_window' must be a map.")
-        elif isinstance(generation_window, dict) and "months_after_last_explicit_event" in generation_window:
-            value = generation_window.get("months_after_last_explicit_event")
-            if not isinstance(value, int) or value < 0:
+            event_name = str(rule.get("event", "")).strip()
+            if not event_name:
+                issues.append(f"{target}: rule #{index} is missing 'event'.")
+            elif event_names and event_name not in event_names:
                 issues.append(
-                    "config/recurring_events.yaml: 'months_after_last_explicit_event' must be 0 or greater."
+                    f"{target}: recurring event '{event_name}' is not defined in config/event_types.yaml."
                 )
-    else:
-        issues.append("config/recurring_events.yaml: top level must be a YAML map.")
 
-    exclusions_started = False
-    seen_events = set()
+            frequency = str(rule.get("frequency", "")).strip().lower()
+            if frequency not in {"weekly", "monthly"}:
+                issues.append(f"{target}: rule #{index} has invalid frequency '{rule.get('frequency')}'.")
+            if str(rule.get("weekday", "")).strip().lower() not in WEEKDAYS:
+                issues.append(f"{target}: rule #{index} has invalid weekday '{rule.get('weekday')}'.")
+            if frequency == "monthly" and str(rule.get("occurrence", "")).strip().lower() not in {"first", "last"}:
+                issues.append(f"{target}: monthly rule #{index} must use occurrence 'first' or 'last'.")
+
+    window = recurring_data.get("generation_window", {})
+    if window and not isinstance(window, dict):
+        issues.append(f"{target}: 'generation_window' must be a map.")
+    elif isinstance(window, dict) and "months_after_last_explicit_event" in window:
+        value = window["months_after_last_explicit_event"]
+        if not isinstance(value, int) or value < 0:
+            issues.append(f"{target}: 'months_after_last_explicit_event' must be 0 or greater.")
+
+
+def _validate_events_file(text, event_names, issues):
+    target = "data/events.md"
+    in_exclusions = False
+    seen = set()
     saw_event_content = False
-    for line_number, line in _iter_active_lines(sections["data/events.md"]):
+
+    for line_number, line in iter_active_lines(text):
         if not line:
             continue
         if line.startswith("#"):
-            if line.lower().strip() == "## exclusions":
-                exclusions_started = True
+            in_exclusions = in_exclusions or line.lower().strip() == "## exclusions"
             continue
+
         match = EVENT_LINE_PATTERN.fullmatch(line)
         if not match:
-            if not saw_event_content:
-                continue
-            issues.append(
-                f"data/events.md:{line_number}: use '{DATE_FORMAT} - Event Name'. Could not read '{line}'."
-            )
+            if saw_event_content:
+                issues.append(
+                    f"{target}:{line_number}: use '{DATE_FORMAT} - Event Name'. Could not read '{line}'."
+                )
             continue
+
         date_str, event_name = match.groups()
         try:
             event_date = datetime.strptime(date_str, DATE_FORMAT)
         except ValueError:
-            issues.append(f"data/events.md:{line_number}: '{date_str}' is not a valid date.")
+            issues.append(f"{target}:{line_number}: '{date_str}' is not a valid date.")
             continue
+
         saw_event_content = True
-        normalized = (event_date.date().isoformat(), event_name.strip(), exclusions_started)
-        if normalized in seen_events:
+        event_name = event_name.strip()
+        entry = (event_date.date().isoformat(), event_name, in_exclusions)
+        if entry in seen:
+            kind = "exclusion" if in_exclusions else "event"
+            issues.append(f"{target}:{line_number}: duplicate {kind} '{date_str} - {event_name}'.")
+        seen.add(entry)
+
+        if event_names and event_name not in event_names and event_type(event_name) not in event_names:
             issues.append(
-                f"data/events.md:{line_number}: duplicate {'exclusion' if exclusions_started else 'event'} '{date_str} - {event_name.strip()}'."
-            )
-        seen_events.add(normalized)
-        if event_names and event_name.strip() not in event_names:
-            issues.append(
-                f"data/events.md:{line_number}: unknown event type '{event_name.strip()}'. Add it to config/event_types.yaml."
+                f"{target}:{line_number}: unknown event type '{event_name}'. Add it to config/event_types.yaml."
             )
 
-    current_quarter = None
-    current_member = None
-    saw_bad_dates_content = False
-    for line_number, line in _iter_active_lines(sections["data/bad_dates.md"]):
+
+def _validate_bad_dates_file(text, member_names, issues):
+    target = "data/bad_dates.md"
+    quarter = None
+    member = None
+    saw_content = False
+
+    for line_number, line in iter_active_lines(text):
         if not line or line.startswith("# "):
             continue
+
         if line.startswith("## "):
-            saw_bad_dates_content = True
+            saw_content = True
+            member = None
             try:
-                current_quarter = _normalize_quarter(line[3:])
+                quarter = normalize_quarter(line[3:])
             except ValueError as exc:
-                issues.append(f"data/bad_dates.md:{line_number}: {exc}")
-                current_quarter = None
-            current_member = None
-            continue
-        if line.startswith("### "):
-            saw_bad_dates_content = True
-            if current_quarter is None:
+                issues.append(f"{target}:{line_number}: {exc}")
+                quarter = None
+        elif line.startswith("### "):
+            saw_content = True
+            if quarter is None:
+                issues.append(f"{target}:{line_number}: member heading must come after a quarter heading.")
+                continue
+            member = line[4:].strip()
+            if member_names and member not in member_names:
                 issues.append(
-                    f"data/bad_dates.md:{line_number}: member heading must come after a quarter heading."
+                    f"{target}:{line_number}: unknown member '{member}'. Add them to data/team.yaml first."
+                )
+        elif line.startswith("- "):
+            saw_content = True
+            if quarter is None or member is None:
+                issues.append(
+                    f"{target}:{line_number}: dates must be under a quarter heading and member heading."
                 )
                 continue
-            current_member = line[4:].strip()
-            if member_names and current_member not in member_names:
-                issues.append(
-                    f"data/bad_dates.md:{line_number}: unknown member '{current_member}'. Add them to data/team.yaml first."
-                )
-            continue
-        if line.startswith("- "):
-            saw_bad_dates_content = True
-            if current_quarter is None or current_member is None:
-                issues.append(
-                    f"data/bad_dates.md:{line_number}: dates must be under a quarter heading and member heading."
-                )
-                continue
+
             date_str = line[2:].strip()
             try:
                 blocked_date = datetime.strptime(date_str, DATE_FORMAT).date()
             except ValueError:
-                issues.append(f"data/bad_dates.md:{line_number}: '{date_str}' is not a valid date.")
+                issues.append(f"{target}:{line_number}: '{date_str}' is not a valid date.")
                 continue
-            if _quarter_key(blocked_date) != current_quarter:
-                issues.append(
-                    f"data/bad_dates.md:{line_number}: date '{date_str}' does not belong to {current_quarter}."
-                )
+            if quarter_key(blocked_date) != quarter:
+                issues.append(f"{target}:{line_number}: date '{date_str}' does not belong to {quarter}.")
+        elif saw_content:
+            issues.append(
+                f"{target}:{line_number}: unrecognized line '{line}'. "
+                f"Use quarter headings, member headings, and bullet dates."
+            )
+
+
+def _validate_sheets_sync(sync_data, issues):
+    target = "config/google_sheets_sync.yaml"
+    if not isinstance(sync_data, dict):
+        issues.append(f"{target}: top level must be a YAML map.")
+        return
+
+    google_sheets = sync_data.get("google_sheets")
+    if not isinstance(google_sheets, dict):
+        issues.append(f"{target}: add a top-level 'google_sheets' map.")
+        return
+
+    for field in ("spreadsheet_id", "worksheet_title", "service_account_json"):
+        value = google_sheets.get(field)
+        if value is None or str(value).strip() == "":
+            issues.append(f"{target}: '{field}' cannot be blank.")
+
+
+def _validate_scheduler_policy(policy_data, member_names, event_names, issues):
+    target = "config/scheduler_policy.yaml"
+    if not isinstance(policy_data, dict):
+        issues.append(f"{target}: top level must be a YAML map.")
+        return
+
+    sections = {
+        name: policy_data.get(name, {})
+        for name in ("limits", "penalties", "weights", "bonuses", "fallbacks", "safety", "special_rules")
+    }
+    for name, section in sections.items():
+        if section and not isinstance(section, dict):
+            issues.append(f"{target}: '{name}' must be a YAML map.")
+
+    for name in ("limits", "penalties", "weights", "bonuses", "fallbacks"):
+        section = sections[name]
+        if not isinstance(section, dict):
             continue
-        if not saw_bad_dates_content:
-            continue
+        for field, value in section.items():
+            if not isinstance(value, int) or value < 0:
+                issues.append(f"{target}: '{field}' must be an integer >= 0.")
+
+    event_roles = policy_data.get("event_roles", {})
+    if event_roles and not isinstance(event_roles, dict):
+        issues.append(f"{target}: 'event_roles' must be a YAML map.")
+    elif isinstance(event_roles, dict):
+        for key, value in event_roles.items():
+            if key == "service_marker":
+                continue
+            for name in value if isinstance(value, list) else [value]:
+                if event_names and str(name).strip() not in event_names:
+                    issues.append(
+                        f"{target}: event_roles.{key} names '{name}', which is not in config/event_types.yaml."
+                    )
+
+    required_guides = sections["safety"].get("required_guides_for", [])
+    if required_guides and not isinstance(required_guides, list):
+        issues.append(f"{target}: 'safety.required_guides_for' must be a list.")
+    elif isinstance(required_guides, list):
+        for name in required_guides:
+            name = str(name).strip()
+            if not name:
+                issues.append(f"{target}: 'safety.required_guides_for' cannot contain blank names.")
+            elif member_names and name not in member_names:
+                issues.append(f"{target}: unknown member '{name}' in safety.required_guides_for.")
+
+    special_rules = sections["special_rules"]
+    if "use_scoring_only_after_hard_constraints" in special_rules and not isinstance(
+        special_rules["use_scoring_only_after_hard_constraints"], bool
+    ):
         issues.append(
-            f"data/bad_dates.md:{line_number}: unrecognized line '{line}'. Use quarter headings, member headings, and bullet dates."
+            f"{target}: 'special_rules.use_scoring_only_after_hard_constraints' must be true or false."
         )
 
-    if isinstance(sync_data, dict):
-        google_sheets = sync_data.get("google_sheets")
-        if not isinstance(google_sheets, dict):
-            issues.append("config/google_sheets_sync.yaml: add a top-level 'google_sheets' map.")
-        else:
-            for field in ("spreadsheet_id", "worksheet_title", "service_account_json"):
-                value = google_sheets.get(field)
-                if value is None or str(value).strip() == "":
-                    issues.append(f"config/google_sheets_sync.yaml: '{field}' cannot be blank.")
-    else:
-        issues.append("config/google_sheets_sync.yaml: top level must be a YAML map.")
 
-    if isinstance(scheduler_policy_data, dict):
-        limits = scheduler_policy_data.get("limits", {})
-        penalties = scheduler_policy_data.get("penalties", {})
-        weights = scheduler_policy_data.get("weights", {})
-        bonuses = scheduler_policy_data.get("bonuses", {})
-        fallbacks = scheduler_policy_data.get("fallbacks", {})
-        safety = scheduler_policy_data.get("safety", {})
-        special_rules = scheduler_policy_data.get("special_rules", {})
+def validate_universal_scheduler_sections(sections):
+    issues = []
+    loaded = {
+        target: _load_yaml_section(target, sections[target], issues)
+        for target, language in SECTION_SPECS
+        if language == "yaml"
+    }
 
-        for section_name, section_data in (
-            ("limits", limits),
-            ("penalties", penalties),
-            ("weights", weights),
-            ("bonuses", bonuses),
-            ("fallbacks", fallbacks),
-            ("safety", safety),
-            ("special_rules", special_rules),
-        ):
-            if section_data and not isinstance(section_data, dict):
-                issues.append(f"config/scheduler_policy.yaml: '{section_name}' must be a YAML map.")
-
-        for field_name in (
-            "max_assignments_per_member_per_month",
-            "max_director_track_directs_per_month",
-            "max_red_assignments_per_month",
-            "max_high_tier_yellow_shoot_rank",
-            "max_high_tier_yellow_editor_rank",
-            "high_tier_reserve_window_days",
-            "high_tier_recent_window_days",
-            "max_same_high_tier_event_assignments",
-            "creative_team_meet_max_yellow_editor_rank",
-            "creative_team_meet_anchor_yellow_shoot_rank",
-        ):
-            if field_name in limits and (
-                not isinstance(limits.get(field_name), int) or limits.get(field_name) < 0
-            ):
-                issues.append(
-                    f"config/scheduler_policy.yaml: '{field_name}' must be an integer >= 0."
-                )
-
-        for field_name, source in (
-            ("consecutive_event_penalty", penalties),
-            ("repeated_high_tier_event_penalty", penalties),
-            ("recent_high_tier_window_penalty", penalties),
-            ("repeated_event_editor_pair_penalty", penalties),
-            ("repeated_low_tier_event_penalty", penalties),
-            ("repeated_weekday_low_tier_penalty", penalties),
-            ("weekday_late_low_tier_penalty", penalties),
-            ("multi_day_high_tier_early_day_strength_reserve", penalties),
-            ("upcoming_high_tier_reserve_penalty", penalties),
-            ("upcoming_high_tier_preload_penalty", penalties),
-            ("upcoming_high_tier_preload_same_role_penalty", penalties),
-            ("priority_rank", weights),
-            ("role_serve_count", weights),
-            ("total_serve_count", weights),
-            ("first_monthly_photographer_assignment", bonuses),
-            ("yellow_photo_coverage_bonus", bonuses),
-            ("green_editor_rotation_bonus", bonuses),
-            ("weekend_service_for_weekday_late_member", bonuses),
-            ("multi_day_high_tier_final_day_strength_boost", bonuses),
-            ("creative_team_meet_anchor_bonus", bonuses),
-            ("blank_rank_value", fallbacks),
-        ):
-            if field_name in source and (
-                not isinstance(source.get(field_name), int) or source.get(field_name) < 0
-            ):
-                issues.append(
-                    f"config/scheduler_policy.yaml: '{field_name}' must be an integer >= 0."
-                )
-
-        required_guides_for = safety.get("required_guides_for", [])
-        if required_guides_for and not isinstance(required_guides_for, list):
-            issues.append("config/scheduler_policy.yaml: 'safety.required_guides_for' must be a list.")
-        elif isinstance(required_guides_for, list):
-            for name in required_guides_for:
-                normalized_name = str(name).strip()
-                if not normalized_name:
-                    issues.append(
-                        "config/scheduler_policy.yaml: 'safety.required_guides_for' cannot contain blank names."
-                    )
-                elif member_names and normalized_name not in member_names:
-                    issues.append(
-                        f"config/scheduler_policy.yaml: unknown member '{normalized_name}' in safety.required_guides_for."
-                    )
-
-        if (
-            "use_scoring_only_after_hard_constraints" in special_rules
-            and not isinstance(special_rules.get("use_scoring_only_after_hard_constraints"), bool)
-        ):
-            issues.append(
-                "config/scheduler_policy.yaml: 'special_rules.use_scoring_only_after_hard_constraints' must be true or false."
-            )
-    else:
-        issues.append("config/scheduler_policy.yaml: top level must be a YAML map.")
+    member_names = _validate_team(loaded["data/team.yaml"], issues)
+    event_names = _validate_event_types(loaded["config/event_types.yaml"], issues)
+    _validate_recurring_events(loaded["config/recurring_events.yaml"], event_names, issues)
+    _validate_events_file(sections["data/events.md"], event_names, issues)
+    _validate_bad_dates_file(sections["data/bad_dates.md"], member_names, issues)
+    _validate_sheets_sync(loaded["config/google_sheets_sync.yaml"], issues)
+    _validate_scheduler_policy(loaded["config/scheduler_policy.yaml"], member_names, event_names, issues)
 
     if issues:
         raise UniversalSchedulerValidationError(issues)
 
-    return {
-        "member_names": sorted(member_names),
-        "event_names": sorted(event_names),
-    }
+    return {"member_names": sorted(member_names), "event_names": sorted(event_names)}
+
+
+# --------------------------------------------------------------------------- entry points
 
 
 def validate_universal_scheduler(path=UNIVERSAL_SCHEDULER_PATH):
     sync_sections_if_needed(path)
-    sections = parse_universal_scheduler(path)
-    return validate_universal_scheduler_sections(sections)
+    return validate_universal_scheduler_sections(parse_universal_scheduler(path))
 
 
 def compile_universal_scheduler(path=UNIVERSAL_SCHEDULER_PATH, validate=True):
@@ -1070,12 +922,10 @@ def universal_scheduler_needs_sync(path=UNIVERSAL_SCHEDULER_PATH):
         return False
 
     universal_mtime = path.stat().st_mtime
-    for target, _ in SECTION_SPECS:
-        output_path = BASE / target
-        if not output_path.exists() or universal_mtime > output_path.stat().st_mtime:
-            return True
-
-    return False
+    return any(
+        not (BASE / target).exists() or universal_mtime > (BASE / target).stat().st_mtime
+        for target, _ in SECTION_SPECS
+    )
 
 
 def sync_universal_scheduler_if_needed(path=UNIVERSAL_SCHEDULER_PATH, force=False):
@@ -1083,8 +933,6 @@ def sync_universal_scheduler_if_needed(path=UNIVERSAL_SCHEDULER_PATH, force=Fals
         return []
 
     synced_paths = sync_sections_if_needed(path)
-
     if force or universal_scheduler_needs_sync(path):
         return [*synced_paths, *compile_universal_scheduler(path)]
-
     return synced_paths

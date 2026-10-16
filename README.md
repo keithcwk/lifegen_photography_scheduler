@@ -45,6 +45,32 @@ They use the repo's `.venv` if present. Otherwise they fall back to `python3`.
 ./.venv/bin/python scripts/push_schedule_to_google_sheet.py
 ```
 
+Run the checks after changing anything:
+
+```bash
+./.venv/bin/python tests/test_scheduler.py
+```
+
+Import a quarter tab from the Google Sheet (special events in row 2, the `N/A` row 4 and the BAD DATES block become bad dates):
+
+```bash
+./.venv/bin/python scripts/import_sheet_quarter.py --tab Q4          # preview
+./.venv/bin/python scripts/import_sheet_quarter.py --tab Q4 --write  # apply
+./.venv/bin/python scripts/import_sheet_quarter.py --tab "Q4 Schedule" --bad-dates-only --write
+```
+
+Write the roster into a hand-built quarter tab, leaving its formulas and formatting alone:
+
+```bash
+./.venv/bin/python scripts/push_schedule_to_google_sheet.py --dry-run
+./.venv/bin/python scripts/push_schedule_to_google_sheet.py --restructure
+./.venv/bin/python scripts/push_schedule_to_google_sheet.py --target pcjb
+```
+
+`--dry-run` prints every range it would touch. `--restructure` also rebuilds the month header
+merges and the per-month summary formulas after the column layout changes; normal pushes leave
+rows 18 and below untouched.
+
 Useful extra commands:
 
 ```bash
@@ -85,11 +111,38 @@ Suggested process:
 
 That gives other teams the same engine, while only changing one human-edited file.
 
+## Roles The Scheduler Fills
+
+Per event, `config/event_types.yaml` decides which slots exist:
+
+- `photographers` and `editors`: the core lineup
+- `sde_director: 1`: the person overseeing the editors. Sunday services and big events use one.
+  Eligible: greens plus anyone within the strong-editor rank limit. Always a different person
+  from the director, editors and photographers; on high tier events they edit as well.
+- `assist: 1`: an assist director for every run of that event. A trainee director always gets a
+  green assist whether or not the event asks for one.
+- `floor_runner: 1`: a floor runner, preferring reds as a development slot.
+- `greens_only: true`: restricts every slot of that event to greens (used by Power Conference JB).
+- `director_edits: true`: the director also fills the editor slot (used by Leaders Meet and Leaders Retreat).
+- `extra_red_photographer: 1`: one more photographer slot, only for a red who has not served in
+  `limits.red_idle_days` (used by Lifegen Prayer).
+- `leaders_only: true`: restricts every slot to members marked `leader: true`.
+
+Multi-session events get one line per session in `data/events.md`:
+
+```
+11 Sep 2026 - Power Conference KL | Night 1
+11 Sep 2026 - Power Conference KL | Night 2
+```
+
+Each session is its own column with its own roster. Staffing comes from the event type, or from a
+block named `Power Conference KL | Night 1` if you want that session shaped differently.
+
 ## Team Fields
 
 Useful optional fields inside `data/team.yaml` or the team section of `UNIVERSAL_SCHEDULER.md`:
 
-- `leaders: true` marks members who may serve at `Leaders Meet`
+- `leader: true` marks members who may serve at leaders-only events (`leaders: true` also works)
 - `guide: true` marks members who may guide `Isaac` or `Aslvin`
 - `weekday_late: true` tells the scheduler to avoid weekday low-tier events for that member when workable and prefer occasional Sunday usage instead
 - greens still use `shoot_rank`, `direct_rank`, and `editor_rank`
@@ -157,11 +210,15 @@ Notes:
 - If push fails with a permission error, the sheet is usually not shared with the service account yet.
 - If push fails with an API-disabled error, enable Google Sheets API in the same Google Cloud project and retry after a few minutes.
 
-Values-only push is available if you want to preserve live formatting:
+Pushes update cell values only and leave your live formatting alone. To restyle the managed
+ranges as well:
 
 ```bash
-./.venv/bin/python scripts/push_schedule_to_google_sheet.py --values-only
+./.venv/bin/python scripts/push_schedule_to_google_sheet.py --with-formatting
 ```
+
+After a change to the sheet's shape (new rows or columns), push twice: the incremental diff
+clears stale cells on the second pass.
 
 ## Troubleshooting
 

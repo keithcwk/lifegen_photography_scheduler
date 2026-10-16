@@ -58,17 +58,53 @@ greens:
     direct_rank: 2
     editor_rank: 2
 
+  - name: Example Green 3
+    shoot_rank: 3
+    direct_rank: 3
+    editor_rank: 3
+
+  - name: Example Green 4
+    shoot_rank: 4
+    direct_rank: 4
+    editor_rank: 4
+
+  - name: Example Green 5
+    shoot_rank: 5
+    direct_rank: 5
+    editor_rank: 5
+
+  - name: Example Green 6
+    shoot_rank: 6
+    direct_rank: 6
+    editor_rank: 6
+
 yellows:
   - name: Example Yellow 1
+    shoot_rank: 7
     editor_rank: 1
     director_track: true
 
   - name: Example Yellow 2
+    shoot_rank: 8
     editor_rank: 2
 
+  - name: Example Yellow 3
+    shoot_rank: 9
+    editor_rank: 3
+
+  - name: Example Yellow 4
+    shoot_rank: 10
+    editor_rank: 4
+
 reds:
-  - Example Red 1
-  - Example Red 2
+  - name: Example Red 1
+    shoot_rank: 11
+  - name: Example Red 2
+    shoot_rank: 12
+  - name: Example Red 3
+    shoot_rank: 13
+
+shadows: []
 ```
 
 ## data/events.md
@@ -116,27 +152,30 @@ Example
 events:
   Sunday Service:
     photographers: 4
-    directors: 1
     editors: 2
+    sde_director: 1
     tier: standard
+    min_green_photographers: 1
 
   Prayer Meeting:
     photographers: 2
-    directors: 1
     editors: 1
     tier: low
 
   Leaders Meeting:
     photographers: 2
-    directors: 1
     editors: 1
     tier: low
 
   Special Service:
     photographers: 4
-    directors: 1
     editors: 2
+    assist: 1
+    sde_director: 1
+    floor_runner: 1
     tier: high
+    min_green_photographers: 2
+    max_red_photographers: 0
 ```
 
 ## config/recurring_events.yaml
@@ -162,55 +201,179 @@ generation_window:
 
 ## config/google_sheets_styles.yaml
 ```yaml
-google_sheets_styles:
+sheet:
+  freeze_header_row: true
+  header_row_height: 32
   font_family: Montserrat
-  pivot_column:
-    background_color: "#F3F4F6"
-  header_rows:
-    bold: true
-  borders:
-    color: "#D0D7DE"
-  month_palette:
-    colors:
-      - "#D9EAD3"
-      - "#D0E0E3"
-      - "#FCE5CD"
-      - "#EAD1DC"
+  horizontal_alignment: CENTER
+  vertical_alignment: MIDDLE
+
+pivot_column:
+  font_weight: bold
+  background_color: "#D9EAF4"
+  text_color: "#1F1F1F"
+
+event_name:
+  font_weight: bold
+  background_color: "#F4F7FB"
+  text_color: "#1F1F1F"
+  wrap_strategy: WRAP
+
+date_column:
+  font_weight: bold
+  background_color: "#FAFAFA"
+  text_color: "#333333"
+
+availability_row:
+  font_weight: normal
+  background_color: "#FFF8E1"
+  text_color: "#6B5600"
+
+month_palette:
+  colors:
+    - "#F4CCCC"
+    - "#FCE5CD"
+    - "#FFF2CC"
+    - "#D9EAD3"
+    - "#D0E0E3"
+    - "#CFE2F3"
+    - "#D9D2E9"
+    - "#EAD1DC"
+
+month_group_border:
+  enabled: true
+  color: "#6B7280"
+  style: SOLID_MEDIUM
+
+column_separator:
+  enabled: true
+  color: "#9AA0A6"
+  style: SOLID
+
+header_divider:
+  enabled: true
+  color: "#000000"
+  style: SOLID
+
+alternating_rows:
+  enabled: true
+  odd_row_background: "#FFFFFF"
+  even_row_background: "#F8FAFC"
+
+borders:
+  enabled: true
+  color: "#D0D7DE"
 ```
 
 ## config/google_sheets_layout.yaml
 ```yaml
 sheet_layout:
-  event_matrix:
-    pivot_column_label: Role
-    event_name_row: 1
-    event_date_row: 2
-    unavailable_row: 3
-  role_rows:
-    - Director
-    - Assist
-    - Photographer 1
-    - Photographer 2
-    - Photographer 3
-    - Photographer 4
-    - Photographer 5
-    - Floor runner
-    - SDE 1
-    - SDE 2
+  orientation: column_based_event_matrix
+  description: >
+    Each event occupies one column. Rows represent event metadata first, then
+    assignment roles. A separate summary section tracks workload, and a bad
+    dates section records availability constraints.
+
+  blank_event_titles:
+    - Sunday Service
+
+  event_column:
+    metadata_rows:
+      - row: 1
+        key: event_name
+        label: Event Name
+      - row: 2
+        key: event_date
+        label: Event Date
+      - row: 3
+        key: unavailable
+        label: N/A
+
+    role_rows:
+      - row: 4
+        key: director
+        label: Director
+        required: true
+      - row: 5
+        key: assist
+        label: Assist
+        required: false
+      - row: 6
+        key: photographer_1
+        label: Photographer 1
+        required: true
+      - row: 7
+        key: photographer_2
+        label: Photographer 2
+        required: true
+      - row: 8
+        key: photographer_3
+        label: Photographer 3
+        required: true
+      - row: 9
+        key: photographer_4
+        label: Photographer 4
+        required: true
+      - row: 10
+        key: photographer_5
+        label: Photographer 5
+        required: false
+      - row: 11
+        key: floor_runner
+        label: Floor runner
+        required: false
+      - row: 12
+        key: sde_director
+        label: SDE Director
+        required: false
+      - row: 13
+        key: sde_1
+        label: SDE 1
+        required: true
+      - row: 14
+        key: sde_2
+        label: SDE 2
+        required: true
+      - row: 15
+        key: shadow
+        label: Shadow
+        required: false
+
+  default_event_profiles:
+    sunday_service:
+      uses_roles:
+        - director
+        - photographer_1
+        - photographer_2
+        - photographer_3
+        - photographer_4
+        - sde_1
+        - sde_2
+      optional_roles:
+        - assist
+        - photographer_5
+        - floor_runner
+        - shadow
+
   summary_section:
-    title: Summary
-    headers:
+    orientation: row_based_members
+    columns:
       - Name
       - Shoot
       - SDE
       - Direct/Assist
       - Has Slot
+
   bad_dates_section:
-    title: Bad Dates
-    headers:
-      - Name
+    columns:
+      - Member Name
       - Bad Dates
+
   canonical_scheduler_format:
+    description: >
+      The scheduler may keep an internal flat format for logic and CSV export,
+      then map it into the Google Sheets event-matrix layout during sheet
+      rendering.
     columns:
       - event
       - date
@@ -223,8 +386,10 @@ sheet_layout:
       - photographer_4
       - photographer_5
       - floor_runner
+      - sde_director
       - sde_1
       - sde_2
+      - shadow
 ```
 
 ## config/google_sheets_sync.yaml
@@ -234,6 +399,54 @@ google_sheets:
   spreadsheet_id: "YOUR_SPREADSHEET_ID"
   worksheet_title: "Schedule"
   service_account_json: "/absolute/path/to/google_credentials.json"
-  clear_before_write: true
+  clear_before_write: false
   create_worksheet_if_missing: true
+```
+
+## config/scheduler_policy.yaml
+```yaml
+limits:
+  max_assignments_per_member_per_month: 2
+  max_director_track_directs_per_month: 1
+  max_red_assignments_per_month: 2
+  max_high_tier_yellow_shoot_rank: 10
+  max_high_tier_yellow_editor_rank: 4
+  high_tier_reserve_window_days: 14
+
+penalties:
+  consecutive_event_penalty: 30
+  repeated_weekday_low_tier_penalty: 35
+  weekday_late_low_tier_penalty: 80
+  multi_day_high_tier_early_day_strength_reserve: 10
+  upcoming_high_tier_reserve_penalty: 18
+  upcoming_high_tier_preload_penalty: 55
+  upcoming_high_tier_preload_same_role_penalty: 30
+
+bonuses:
+  first_monthly_photographer_assignment: 24
+  yellow_photo_coverage_bonus: 32
+  green_editor_rotation_bonus: 24
+  weekend_service_for_weekday_late_member: 18
+  multi_day_high_tier_final_day_strength_boost: 18
+
+weights:
+  priority_rank: 10
+  role_serve_count: 8
+  total_serve_count: 3
+
+fallbacks:
+  blank_rank_value: 50
+
+safety:
+  required_guides_for:
+    - Example Red 1
+
+event_roles:
+  balanced_service: Sunday Service
+  mid_tier_editor: Prayer Meeting
+  leaders_meet: Leaders Meeting
+  service_marker: service
+
+special_rules:
+  frequency_exempt_events: []
 ```

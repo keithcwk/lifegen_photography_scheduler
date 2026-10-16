@@ -1,11 +1,8 @@
 events:
   Sunday Service:
     photographers: 4
-    director: 1
-    assist: 0
     editors: 2
-    floor_runner: 0
-    shadow: 0
+    sde_director: 1
     tier: standard
     min_green_photographers: 1
     min_yellow_photographers: 1
@@ -14,66 +11,57 @@ events:
 
   Mother's Day:
     photographers: 4
-    director: 1
-    assist: 0
     editors: 2
-    floor_runner: 0
-    shadow: 0
+    assist: 1
+    sde_director: 1
+    floor_runner: 1
     tier: high
     min_green_photographers: 2
     max_red_photographers: 0
 
   Father's Day:
     photographers: 4
-    director: 1
-    assist: 0
     editors: 2
-    floor_runner: 0
-    shadow: 0
+    assist: 1
+    sde_director: 1
+    floor_runner: 1
     tier: high
     min_green_photographers: 2
     max_red_photographers: 0
 
   Easter:
     photographers: 4
-    director: 1
-    assist: 0
     editors: 2
-    floor_runner: 0
-    shadow: 0
+    assist: 1
+    sde_director: 1
+    floor_runner: 1
     tier: high
     min_green_photographers: 2
     max_red_photographers: 0
 
   Good Friday:
     photographers: 4
-    director: 1
-    assist: 0
     editors: 2
-    floor_runner: 0
-    shadow: 0
+    assist: 1
+    sde_director: 1
+    floor_runner: 1
     tier: high
     min_green_photographers: 2
     max_red_photographers: 0
 
   Lifegen Camp:
     photographers: 4
-    director: 1
-    assist: 0
     editors: 2
-    floor_runner: 0
-    shadow: 0
+    assist: 1
+    sde_director: 1
+    floor_runner: 1
     tier: high
     min_green_photographers: 2
     max_red_photographers: 0
 
   Worship Encounter:
     photographers: 4
-    director: 1
-    assist: 0
     editors: 2
-    floor_runner: 0
-    shadow: 0
     tier: standard
     min_green_photographers: 1
     min_yellow_photographers: 1
@@ -81,63 +69,104 @@ events:
 
   Power Night:
     photographers: 4
-    director: 1
-    assist: 0
     editors: 2
-    floor_runner: 0
-    shadow: 0
     tier: standard
     min_green_photographers: 1
     max_red_photographers: 2
 
   Power Conference KL:
     photographers: 4
-    director: 1
-    assist: 0
     editors: 2
-    floor_runner: 0
-    shadow: 0
+    assist: 1
+    sde_director: 1
+    floor_runner: 1
     tier: high
     min_green_photographers: 2
     max_red_photographers: 0
 
   Power Conference JB:
+    photographers: 3
+    editors: 1
+    sde_director: 1
+    tier: high
+    greens_only: true
+    min_green_photographers: 3
+    max_red_photographers: 0
+
+  Leaders Retreat:
+    photographers: 1
+    editors: 1
+    director_edits: true
+    tier: low
+    leaders_only: true
+
+  Baptism:
     photographers: 4
-    director: 1
-    assist: 0
     editors: 2
-    floor_runner: 0
-    shadow: 0
+    sde_director: 1
+    tier: standard
+    min_green_photographers: 2
+    max_red_photographers: 0
+
+  Baptism Class:
+    photographers: 2
+    editors: 1
+    tier: standard
+    min_green_photographers: 1
+    max_red_photographers: 1
+
+  Creative Team Advance:
+    photographers: 3
+    editors: 2
+    tier: low
+    min_yellow_photographers: 1
+    max_red_photographers: 2
+
+  LGY Christmas:
+    photographers: 2
+    editors: 1
+    tier: standard
+    min_green_photographers: 1
+    max_red_photographers: 1
+
+  Christmas:
+    photographers: 4
+    editors: 2
+    assist: 1
+    sde_director: 1
+    floor_runner: 1
     tier: high
     min_green_photographers: 2
     max_red_photographers: 0
 
+  Watchnight Service:
+    photographers: 4
+    editors: 2
+    sde_director: 1
+    tier: standard
+    min_green_photographers: 2
+    min_yellow_photographers: 1
+    max_red_photographers: 0
+
   Leaders Meet:
     photographers: 1
-    director: 1
-    assist: 0
     editors: 1
-    floor_runner: 0
-    shadow: 0
+    director_edits: true
     tier: low
     leaders_only: true
 
   Creative Team Meet:
     photographers: 3
-    director: 1
-    assist: 0
     editors: 2
-    floor_runner: 0
-    shadow: 0
     tier: low
     min_yellow_photographers: 1
     max_red_photographers: 2
 
   Lifegen Prayer:
     photographers: 2
-    director: 1
-    assist: 0
     editors: 1
-    floor_runner: 0
-    shadow: 0
+    sde_director: 1
     tier: low
+    max_red_photographers: 1
+    # One more slot when a red has not served in limits.red_idle_days.
+    extra_red_photographer: 1

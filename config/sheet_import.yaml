@@ -1,0 +1,30 @@
+# How to read a quarter tab in the Google Sheet (scripts/import_sheet_quarter.py).
+layout:
+  event_row: 2
+  date_row: 3
+  unavailable_row: 4  # N/A row: names who cannot serve that column's date
+  default_event: Sunday Service
+  bad_dates_heading: BAD DATES
+  year: 2026
+
+# Sheet label -> event type in config/event_types.yaml ("Event | Session" is allowed).
+event_aliases:
+  PCJB: Power Conference JB
+  Prayer: Lifegen Prayer
+  Prayer Night: Lifegen Prayer
+  water baptism: Baptism Class
+  Baptism: Baptism
+  Leaders Retreat: Leaders Retreat
+  Leaders Retreat Sunday service: Leaders Retreat
+  CTM: Creative Team Meet
+  Creative Team Advance: Creative Team Advance
+  Christmas: Christmas
+  Watchnight: Watchnight Service
+  Bump In: Power Conference JB | Bump In
+  SESSION 1-3: Power Conference JB | Session 1-3
+
+# Sheet name -> team.yaml name (case-insensitive).
+member_aliases:
+  Nic: Nic Wong
+  HC: Huey Chyi
+  Ashely: Ashley

@@ -38,11 +38,6 @@ def main():
         action="store_true",
         help="Validate UNIVERSAL_SCHEDULER.md without writing generated files.",
     )
-    parser.add_argument(
-        "--force",
-        action="store_true",
-        help="Compile from UNIVERSAL_SCHEDULER.md even if it does not appear newer.",
-    )
     args = parser.parse_args()
 
     try:

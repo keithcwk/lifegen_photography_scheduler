@@ -54,14 +54,18 @@ sheet_layout:
         label: Floor runner
         required: false
       - row: 12
+        key: sde_director
+        label: SDE Director
+        required: false
+      - row: 13
         key: sde_1
         label: SDE 1
         required: true
-      - row: 13
+      - row: 14
         key: sde_2
         label: SDE 2
         required: true
-      - row: 14
+      - row: 15
         key: shadow
         label: Shadow
         required: false
@@ -113,6 +117,56 @@ sheet_layout:
       - photographer_4
       - photographer_5
       - floor_runner
+      - sde_director
       - sde_1
       - sde_2
       - shadow
+
+# Layout of the hand-built quarter tabs (Q4, PCJB): month header, event, date, N/A, then roles.
+quarter_tab:
+  month_row: 1
+  metadata_rows:
+    - row: 2
+      key: event_name
+    - row: 3
+      key: event_date
+    - row: 4
+      key: unavailable
+  role_rows:
+    - row: 5
+      key: director
+    - row: 6
+      key: assist
+    - row: 7
+      key: photographer_1
+    - row: 8
+      key: photographer_2
+    - row: 9
+      key: photographer_3
+    - row: 10
+      key: photographer_4
+    - row: 11
+      key: photographer_5
+    - row: 12
+      key: floor_runner
+    - row: 13
+      key: sde_director
+    - row: 14
+      key: sde_1
+    - row: 15
+      key: sde_2
+  summary:
+    header_row: 19
+    first_row: 20
+    formulas:
+      shoot: '=COUNTIF(${start}$7:${end}$11,"*" & {name}{row} & "*")'
+      sde: '=COUNTIF(${start}$13:${end}$15, {name}{row})'
+      direct_assist: '=COUNTIF(${start}$5:${end}$6, {name}{row})'
+      has_slot: '=IF(SUM(${shoot}{row}:${direct_assist}{row})>=1, "Yes", "No")'
+      total: '=sum({shoot}{row}:{direct_assist}{row})'
+    headers:
+      - Shoot
+      - SDE
+      - Direct/Assist
+      - Has Slot
+      - Total Slots
